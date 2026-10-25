@@ -58,6 +58,11 @@ services:
       - ./data/driver:/data/driver
       # The installed QQ build. Persisted, so later starts skip the install.
       - qq_install:/opt/QQ
+      # The container's own logs: QQ's output (qq.log), the first-boot key
+      # extraction (keyx.log) and the live view's bridge (novnc.log). A bind
+      # mount so they survive recreating the container (README.md, "Where the
+      # data lives").
+      - ./logs:/out
       # Optional: a deb you downloaded yourself, mounted read-only at the
       # documented path. Comment out QQ_DEB_URL above and uncomment the two
       # lines below to install from the file instead of from a URL.

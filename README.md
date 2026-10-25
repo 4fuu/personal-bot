@@ -92,8 +92,8 @@ Edit `.env`: set `CONSOLE_PASSWORD`, generate the three tokens with
 [First start](#first-start)).
 
 ```sh
-mkdir -p data/driver/secrets data/bot/pi data/bot/secrets workspace
-sudo chown -R 1000:1000 data/bot workspace
+mkdir -p data/driver/secrets data/bot/pi data/bot/secrets workspace logs
+sudo chown -R 1000:1000 data/bot workspace logs
 docker compose up -d
 ```
 
@@ -104,8 +104,8 @@ database key out of the client under a debugger, which the runner measured at up
 to about 8 minutes on a first boot under the virtual display. The panel's status
 line shows `db.key = "ok"` when it is done.
 
-Rootless Podman: run `podman unshare chown -R 1000:1000 data/bot workspace` once
-after the directories exist, instead of the `sudo chown` above.
+Rootless Podman: run `podman unshare chown -R 1000:1000 data/bot workspace logs`
+once after the directories exist, instead of the `sudo chown` above.
 
 ## First start
 
@@ -152,6 +152,7 @@ the environment.
 | `./data/driver` | `/data/driver` | `secrets/db_key` (0600), `mirror.db`, `config.json` |
 | `./data/bot` | `/data/bot` | `bot.db`, `pi/` (`auth.json` 0600), `secrets/`, `stickers/` |
 | `./workspace` | `/workspace` | the agent's files and the full copies of truncated output |
+| `./logs` | `/out` | the `qq` container's own logs: `qq.log`, `keyx.log`, `novnc.log` |
 | `qq_profile` (volume) | `/home/qq/.config/QQ` | the client's profile: login state, databases, image cache |
 | `qq_install` (volume) | `/opt/QQ` | the installed client build |
 
@@ -160,6 +161,9 @@ sandbox has no other mount, so it cannot read the mirror, `bot.db` or the
 client's files, and its only route to the internet is the bot's egress proxy:
 the sandbox sits on an internal compose network (`sandbox_net`) that has no
 route out of the stack, and the bot is the only other service on it.
+
+The files under `./logs` are diagnostics the stack writes while it runs, and
+they may contain chat content, so keep them private and do not share them.
 
 ## Updating
 
@@ -208,7 +212,7 @@ registration if it has one; both are options in the console's 工作区 page.
 | `error: sha256 mismatch: expected ... got ...` | the deb is not the pinned build; get the right file |
 | `error: both QQ_DEB_URL and the mounted deb ... are set` | remove one of the two |
 | The live view stays on the QR code | that is correct: a QR login is manual and yours to do |
-| `db.key = "missing"` | the key extraction has not finished; the log is `/out/keyx.log` inside the `qq` container. The driver keeps watching, so the status turns to `"ok"` on its own once the key lands |
+| `db.key = "missing"` | the key extraction has not finished; the log is `./logs/keyx.log` on the host (`/out/keyx.log` inside the container). The driver keeps watching, so the status turns to `"ok"` on its own once the key lands |
 | The panel's pages answer 502 | the driver or the bot is not up yet; check `docker compose logs qq bot` |
 
 ## License

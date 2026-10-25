@@ -77,8 +77,8 @@ cp .env.example .env
 并选择一种 QQ 来源（见[首次启动](#首次启动)）。
 
 ```sh
-mkdir -p data/driver/secrets data/bot/pi data/bot/secrets workspace
-sudo chown -R 1000:1000 data/bot workspace
+mkdir -p data/driver/secrets data/bot/pi data/bot/secrets workspace logs
+sudo chown -R 1000:1000 data/bot workspace logs
 docker compose up -d
 ```
 
@@ -88,7 +88,7 @@ docker compose up -d
 `db.key = "ok"` 时即完成。
 
 Rootless Podman：目录建好后执行一次
-`podman unshare chown -R 1000:1000 data/bot workspace`，代替上面的 `sudo chown`。
+`podman unshare chown -R 1000:1000 data/bot workspace logs`，代替上面的 `sudo chown`。
 
 ## 首次启动
 
@@ -131,6 +131,7 @@ Rootless Podman：目录建好后执行一次
 | `./data/driver` | `/data/driver` | `secrets/db_key`（0600）、`mirror.db`、`config.json` |
 | `./data/bot` | `/data/bot` | `bot.db`、`pi/`（`auth.json` 0600）、`secrets/`、`stickers/` |
 | `./workspace` | `/workspace` | 助理的文件，以及被截断输出的完整副本 |
+| `./logs` | `/out` | `qq` 容器自己的日志：`qq.log`、`keyx.log`、`novnc.log` |
 | `qq_profile`（卷） | `/home/qq/.config/QQ` | 客户端配置：登录态、数据库、图片缓存 |
 | `qq_install`（卷） | `/opt/QQ` | 已安装的客户端版本 |
 
@@ -138,6 +139,9 @@ workspace 只由 bot 和 sandbox 共享，没有第三个使用者。沙箱没�
 因此它读不到 mirror、`bot.db` 和客户端的文件，而它通往互联网的唯一出口是 bot 的
 出网代理：沙箱位于一个没有出栈路由的内部 compose 网络（`sandbox_net`）上，
 同一个网络上只有 bot。
+
+`./logs` 下的文件是整套栈运行时写下的诊断日志，可能包含聊天内容，
+请妥善保管，不要分享。
 
 ## 更新
 
@@ -182,7 +186,7 @@ docker compose up -d
 | `error: sha256 mismatch: expected ... got ...` | 这个 deb 不是固定版本，换一个文件 |
 | `error: both QQ_DEB_URL and the mounted deb ... are set` | 去掉其中一个 |
 | 实时画面一直停在二维码 | 这是正常的：扫码登录是手动的，由你完成 |
-| `db.key = "missing"` | 密钥提取还没完成，日志在 `qq` 容器内的 `/out/keyx.log`；驱动程序会继续等待，密钥就绪后状态自己变成 `"ok"` |
+| `db.key = "missing"` | 密钥提取还没完成，日志在宿主机的 `./logs/keyx.log`（容器内是 `/out/keyx.log`）；驱动程序会继续等待，密钥就绪后状态自己变成 `"ok"` |
 | 面板页面返回 502 | driver 或 bot 还没起来，看 `docker compose logs qq bot` |
 
 ## 许可
