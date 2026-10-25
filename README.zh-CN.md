@@ -1,0 +1,196 @@
+# personal-bot（中文）
+
+<div align="center">
+
+**一个跑在你自己机器上的个人助理：记忆存在你自己拥有的文件里，在你已经在用的聊天软件里回复你。**
+
+[快速开始](#快速开始) · [首次启动](#首次启动) · [配置](#配置) · [免责声明](#免责声明)
+
+</div>
+
+> **警告。** 本项目会驱动一个第三方桌面客户端，这不在该客户端服务条款允许的范围内，
+> 账号可能被限制或封禁。请使用有小号历史记录的账号、家庭宽带，并保留默认的发送节奏。
+> 私人研究项目，按"现状"提供，全部风险由使用者承担。
+> 运行前请先阅读 [DISCLAIMER.md](DISCLAIMER.md)。
+
+---
+
+## 这是什么
+
+四个容器。其中一个在虚拟显示里运行聊天客户端；另外三个分别是助理、你用来操作它的面板，
+以及助理的命令所在的沙箱。
+
+```
+┌──────────────────────────── 一个 stack = 一个账号 ────────────────────────────┐
+│                                                                                │
+│  聊天客户端（官方、未修改、无头运行）                                            │
+│    │ 写入              ▲ 发送              ▲ 点击 登录                          │
+│    ▼                   │                   │                                   │
+│  私有的解密副本 ────────▶ driver API（HTTP + WebSocket）                        │
+│                            │                        │                          │
+│                            ▼                        ▼                          │
+│                        console :8080              bot :8766                    │
+│                        （面板、实时画面）          （助理、笔记、发送审核）        │
+│                                                      │                         │
+│                                                      ▼                         │
+│                                                  sandbox :8791                 │
+│                                                  （每条命令都以非特权用户运行）  │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **读。** 收到的消息会在几秒内出现在客户端自己的本地数据库里。本项目解密的是它的
+  **一份私有副本**，因此能拿到真实的消息 id、发送者、@提及、引用回复和图片文件，
+  而不需要接触客户端进程。
+- **写。** 文本、图片、表情、@提及和引用回复都走客户端自己的发送函数，由一个带人类抖动
+  的动作队列控制节奏。
+- **与客户端进程的接触。** 首次登录时的一个 `gdb` 断点，用于读取数据库密钥（之后重启
+  依然有效），以及一个在启动时被预加载进客户端的小型库，由它承接发送。客户端自身的文件
+  不被补丁、不被替换、也不被写入。
+
+### 后端说明
+
+聊天后端是 **官方的 Linux 版 QQ NT 桌面客户端**，即发布说明中记录的那个固定版本，
+在 `qq` 容器内以 TigerVNC 显示、未经修改地运行。助理对你聊天的全部了解，都来自这个
+客户端自己数据库的一份解密副本；它发出的每一条消息，也都走这个客户端自己的发送路径。
+
+本项目不读取客户端的事件流，不监视它的进程，也不使用任何第三方协议实现。面板里的实时
+画面就是客户端自己的 framebuffer，所以你可以扫码登录，并看着它做事。
+
+## 环境要求
+
+- Linux x86_64，或在 Linux 虚拟机里运行的 macOS / Windows。
+- Docker 24+ 或 Podman 4+，带 `compose`。
+- 约 2 GB 内存、5 GB 磁盘，用于镜像和客户端配置。
+- 聊天后端的一个小号，不要用新号。
+- 一个模型服务商的 API key（Anthropic、OpenAI、OpenRouter，或 pi 支持的任何一家），
+  供助理使用。其余部分没有它也能跑。
+
+## 快速开始
+
+```sh
+git clone https://github.com/4fuu/personal-bot.git
+cd personal-bot
+cp .env.example .env
+```
+
+编辑 `.env`：设置 `CONSOLE_PASSWORD`，用 `openssl rand -hex 32` 生成三个令牌，
+并选择一种 QQ 来源（见[首次启动](#首次启动)）。
+
+```sh
+mkdir -p data/driver/secrets data/bot/pi data/bot/secrets workspace
+sudo chown -R 1000:1000 data/bot workspace
+docker compose up -d
+```
+
+然后打开 <http://localhost:8080>，用 `CONSOLE_PASSWORD> 登录，在实时画面里用手机 App
+扫码。勾选 自动登录，之后重启就能自己恢复。首次登录会比较久——驱动程序要在调试器里
+从客户端读出数据库密钥，在虚拟显示下首次启动实测最多约 8 分钟。面板状态行显示
+`db.key = "ok"` 时即完成。
+
+Rootless Podman：目录建好后执行一次
+`podman unshare chown -R 1000:1000 data/bot workspace`，代替上面的 `sudo chown`。
+
+## 首次启动
+
+任何镜像里都不包含 QQ。`qq` 容器在首次启动时安装固定版本，来源必须是下面两者中的
+**恰好一个**：
+
+| 来源 | 怎么给 |
+| --- | --- |
+| 一个下载地址 | `.env` 里设置 `QQ_DEB_URL=https://example.com/QQ_3.2.34_260924_amd64_01.deb` |
+| 一个你已经下载好的 deb | 在 `compose.yaml` 里把它挂载到 `/qq/QQ.deb`（取消两行注释），`QQ_DEB_URL` 留空 |
+
+无论选哪一种，容器都会先校验文件的 sha256 与镜像内置的固定值是否一致，
+**不一致就拒绝安装**，并报出它期望的版本号。安装结果落在 `qq_install` 卷里，
+之后的启动会跳过安装。如果两个来源都没给、或者都给了，容器会说明情况并打印两种
+正确的给法，而不是去猜。
+
+> 官方下载地址在没有签名的情况下会返回 `403`。请从镜像站下载文件，自己核对 sha256，
+> 然后要么本地起一个服务（`python3 -m http.server` 加
+> `QQ_DEB_URL=http://127.0.0.1:8000/<文件>`），要么直接挂载文件。
+
+## 配置
+
+见 [.env.example](.env.example)，一个纯 env 文件，每个变量都有注释说明。简要说明：
+
+| 变量 | 含义 |
+| --- | --- |
+| `CONSOLE_PASSWORD` | 面板密码，面板前面唯一的一道门 |
+| `DRIVER_TOKEN`、`BOT_TOKEN`、`SANDBOX_EXEC_TOKEN` | 三个内部令牌，用 `openssl rand -hex 32` 生成 |
+| `QQ_DEB_URL` | 两种 QQ 来源之一 |
+| `PI_OFFLINE` | `1` 关闭 pi 的模型目录拉取 |
+| `PERSONAL_BOT_TAG` | 要运行的镜像 tag，留空为 `latest`（最新发布）；设为 `v2026.1025.0` 这样的 tag 即可固定版本 |
+
+助理自己的设置——用哪个模型、谁可以跟它说话、它能记住什么、它的命令可以访问哪些
+域名——都在面板里，不在环境变量里。
+
+## 数据放在哪里
+
+| 宿主机路径 | 挂载到 | 内容 |
+| --- | --- | --- |
+| `./data/driver` | `/data/driver` | `secrets/db_key`（0600）、`mirror.db`、`config.json` |
+| `./data/bot` | `/data/bot` | `bot.db`、`pi/`（`auth.json` 0600）、`secrets/`、`stickers/` |
+| `./workspace` | `/workspace` | 助理的文件，以及被截断输出的完整副本 |
+| `qq_profile`（卷） | `/home/qq/.config/QQ` | 客户端配置：登录态、数据库、图片缓存 |
+| `qq_install`（卷） | `/opt/QQ` | 已安装的客户端版本 |
+
+workspace 只由 bot 和 sandbox 共享，没有第三个使用者。沙箱没有别的挂载，
+因此它读不到 mirror、`bot.db` 和客户端的文件，而它通往互联网的唯一出口是 bot 的
+出网代理：沙箱位于一个没有出栈路由的内部 compose 网络（`sandbox_net`）上，
+同一个网络上只有 bot。
+
+## 更新
+
+```sh
+docker compose pull
+docker compose up -d
+```
+
+数据不会丢。客户端配置和它的安装都是卷，重建容器不损失任何东西。
+
+## 接入 MCP 客户端
+
+助理可以作为 MCP 客户端，而一个用 OAuth 认证的 MCP 服务端可以通过
+**Client ID Metadata Document** 注册它：`client_id` 是一个 JSON 文档的 URL，
+授权服务器会去取这个文档，从而知道客户端的跳转地址和名字。
+
+本仓库把这份文档放在 [`mcp-client.json`](mcp-client.json)，`client_id` 指向它
+所在的 GitHub Pages 地址：
+
+```json
+{
+  "client_id": "https://4fuu.github.io/personal-bot/mcp-client.json",
+  "redirect_uris": ["http://localhost:8080/mcp/oauth/callback"]
+}
+```
+
+**假设：** 你通过 `http://localhost:8080` 访问面板，因此浏览器的回调地址是
+`http://localhost:8080/mcp/oauth/callback`，而文档托管在
+`https://4fuu.github.io/personal-bot/mcp-client.json`。如果你用别的地址访问面板——
+域名、隧道、其他端口——请把 `redirect_uris` 改成与浏览器实际使用的地址完全一致，
+因为授权服务器会拒绝不一致的回调地址。
+
+要用 GitHub Pages 提供这份文档，把 `mcp-client.json` 复制到本仓库的 GitHub Pages
+站点根目录即可。如果你不想公开发布任何东西，也可以改在 MCP 服务端上手工注册这个
+客户端，或者用它自己的动态客户端注册；这两个选项都在面板的 工作区 页面里。
+
+## 排障
+
+| 现象 | 含义 |
+| --- | --- |
+| `error: no QQ source: set exactly one of ...` | `QQ_DEB_URL` 和挂载的 deb 都没给，见[首次启动](#首次启动) |
+| `error: sha256 mismatch: expected ... got ...` | 这个 deb 不是固定版本，换一个文件 |
+| `error: both QQ_DEB_URL and the mounted deb ... are set` | 去掉其中一个 |
+| 实时画面一直停在二维码 | 这是正常的：扫码登录是手动的，由你完成 |
+| `db.key = "missing"` | 密钥提取还没完成，日志在 `qq` 容器内的 `/out/keyx.log`；驱动程序会继续等待，密钥就绪后状态自己变成 `"ok"` |
+| 面板页面返回 502 | driver 或 bot 还没起来，看 `docker compose logs qq bot` |
+
+## 许可
+
+[LICENSE](LICENSE)。可以自己运行；不得再分发或转售镜像；不提供任何担保；
+账号与数据的风险由你自己承担。
+
+## 免责声明
+
+[DISCLAIMER.md](DISCLAIMER.md)。与腾讯、与 QQ 无任何关系，按"现状"提供，
+不得用于违法用途。

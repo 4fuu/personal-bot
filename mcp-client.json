@@ -1,0 +1,16 @@
+{
+  "client_id": "https://4fuu.github.io/personal-bot/mcp-client.json",
+  "client_name": "personal-bot",
+  "client_uri": "https://github.com/4fuu/personal-bot",
+  "redirect_uris": [
+    "http://localhost:8080/mcp/oauth/callback"
+  ],
+  "grant_types": [
+    "authorization_code",
+    "refresh_token"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "token_endpoint_auth_method": "none"
+}

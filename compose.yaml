@@ -1,0 +1,167 @@
+# personal-bot - the whole stack from the published images.
+#
+# One stack = one account. Works with `docker compose` and `podman compose`.
+#
+# Copy this file next to a `.env` (see README.md, "Configuration"), then:
+#   docker compose up -d
+#
+# QQ is not inside any image. On the first start the qq container installs the
+# pinned build from one of two sources you choose - QQ_DEB_URL (a download URL)
+# or a deb mounted at /qq/QQ.deb - and verifies its sha256 before installing it.
+# Exactly one of the two must be given; the container says so, and says how,
+# when neither is.
+#
+# The sandbox is where the assistant's commands run: it mounts only the
+# workspace it shares with the bot, holds no secret, and reaches the network
+# only through the bot's egress proxy. `sandbox_net` is an internal network with
+# no route out of the stack, so the bot's proxy is the sandbox's only way to the
+# internet - and the bot and the sandbox are the only services on it.
+
+services:
+  qq:
+    image: ghcr.io/4fuu/personal-bot-qq:${PERSONAL_BOT_TAG:-latest}
+    container_name: personal-bot-qq
+    init: true
+    shm_size: 1g
+    restart: unless-stopped
+    # gdb needs ptrace to read the database key out of the client at first
+    # login (README.md, "First start"). Nothing else in the stack needs it, and
+    # the container holds no secret of its own beyond the key it extracts, which
+    # it writes into its own volume.
+    cap_add:
+      - SYS_PTRACE
+    environment:
+      SCREEN_W: "1280"
+      SCREEN_H: "800"
+      NOVNC: "1"
+      # Exactly one of these two. QQ_DEB_URL wins if both are set, and the
+      # container refuses to start rather than guess.
+      QQ_DEB_URL: "${QQ_DEB_URL:-}"
+      # The driver refuses to start without a token; the console and the bot
+      # send it as `Authorization: Bearer $DRIVER_TOKEN`.
+      DRIVER_TOKEN: "${DRIVER_TOKEN:?set DRIVER_TOKEN in .env}"
+      # The driver's own part of the shared data: db key, mirror.db, config.json.
+      QQ_DATA_DIR: "/data/driver"
+      # How long the first boot waits for the key extraction (see .env.example).
+      KEYX_TIMEOUT_S: "${KEYX_TIMEOUT_S:-900}"
+    expose:
+      # Driver API. Internal by default: publish 8765 only if you run a client
+      # of your own outside this stack.
+      - "8765"
+      # The live view's websocket bridge. Not published: the console proxies it.
+      - "6080"
+    volumes:
+      # QQ's profile: login state, databases and image cache. A named volume so
+      # it survives recreating the container.
+      - qq_profile:/home/qq/.config/QQ
+      # The driver's part of the shared data only.
+      - ./data/driver:/data/driver
+      # The installed QQ build. Persisted, so later starts skip the install.
+      - qq_install:/opt/QQ
+      # Optional: a deb you downloaded yourself, mounted read-only at the
+      # documented path. Comment out QQ_DEB_URL above and uncomment the two
+      # lines below to install from the file instead of from a URL.
+      # - ./QQ.deb:/qq/QQ.deb:ro
+
+  # Admin panel. The only service meant to be published; it fronts the driver
+  # API (with DRIVER_TOKEN) and the qq container's live view behind a single
+  # password.
+  console:
+    image: ghcr.io/4fuu/personal-bot-console:${PERSONAL_BOT_TAG:-latest}
+    container_name: personal-bot-console
+    init: true
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      CONSOLE_PASSWORD: "${CONSOLE_PASSWORD:?set CONSOLE_PASSWORD in .env}"
+      DRIVER_URL: "http://qq:8765"
+      DRIVER_TOKEN: "${DRIVER_TOKEN:?set DRIVER_TOKEN in .env}"
+      # Bot internal API. The console server is the only holder of BOT_TOKEN;
+      # the browser talks to the console, never to the bot.
+      BOT_URL: "http://bot:8766"
+      BOT_TOKEN: "${BOT_TOKEN:?set BOT_TOKEN in .env}"
+      VNC_URL: "ws://qq:6080/websockify"
+    ports:
+      # Password-protected; nothing else needs to be published.
+      - "8080:8080"
+    depends_on:
+      - qq
+      - bot
+
+  # The assistant: one agent session per account, notes memory, and a review
+  # pass over every outbound message. Internal only: the console is the only
+  # client of its API.
+  bot:
+    image: ghcr.io/4fuu/personal-bot-bot:${PERSONAL_BOT_TAG:-latest}
+    container_name: personal-bot-bot
+    init: true
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      BOT_TOKEN: "${BOT_TOKEN:?set BOT_TOKEN in .env}"
+      DRIVER_URL: "http://qq:8765"
+      DRIVER_TOKEN: "${DRIVER_TOKEN:?set DRIVER_TOKEN in .env}"
+      # The bot's part of the shared data: bot.db, pi/, secrets/.
+      DATA_DIR: "/data/bot"
+      # pi's agent directory on the bot's volume: auth.json (0600), your
+      # optional models.json and pi's own catalog cache.
+      PI_DIR: "/data/bot/pi"
+      # 1 disables pi's pi.dev catalog fetch, for fully offline runs.
+      PI_OFFLINE: "${PI_OFFLINE:-0}"
+      # The workspace: the agent's files, and the full copies of every truncated
+      # command output.
+      WORKSPACE_DIR: "/workspace"
+      # The sandbox exec server and the token only the bot holds. Without them
+      # the workspace tools do not exist and the agent keeps its base toolset.
+      SANDBOX_URL: "http://sandbox:8791"
+      SANDBOX_EXEC_TOKEN: "${SANDBOX_EXEC_TOKEN:?set SANDBOX_EXEC_TOKEN in .env}"
+      # The egress proxy the sandbox uses as its only route out.
+      EGRESS_PORT: "8790"
+    expose:
+      - "8766"
+      - "8790"
+    volumes:
+      - ./data/bot:/data/bot
+      - ./workspace:/workspace
+    networks:
+      # The default network talks to the driver and the console; sandbox_net is
+      # the only one the sandbox is on, so it can reach the bot and nothing else.
+      - default
+      - sandbox_net
+    depends_on:
+      - qq
+      - sandbox
+
+  # The sandbox the assistant's commands run in: an exec server that drops every
+  # command to an unprivileged user, one volume, no secret of its own.
+  sandbox:
+    image: ghcr.io/4fuu/personal-bot-sandbox:${PERSONAL_BOT_TAG:-latest}
+    container_name: personal-bot-sandbox
+    init: true
+    restart: unless-stopped
+    environment:
+      SANDBOX_EXEC_TOKEN: "${SANDBOX_EXEC_TOKEN:?set SANDBOX_EXEC_TOKEN in .env}"
+      WORKSPACE_DIR: "/workspace"
+      # The command user, and the proxy every command's environment carries.
+      AGENT_USER: "agent"
+      EGRESS_PROXY_URL: "http://bot:8790"
+    expose:
+      - "8791"
+    volumes:
+      # The only mount: the workspace it shares with the bot. No /data, no
+      # mirror.db, no bot.db, no client files, no token file.
+      - ./workspace:/workspace
+    networks:
+      # An internal network has no route out of the stack, so the bot's egress
+      # proxy is the only way a command reaches the internet.
+      - sandbox_net
+
+volumes:
+  qq_profile:
+  qq_install:
+
+networks:
+  # Internal by default (no gateway to the outside); the bot is on it too, so
+  # the sandbox can reach the bot and nothing else.
+  sandbox_net:
+    internal: true

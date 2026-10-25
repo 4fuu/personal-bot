@@ -1,0 +1,74 @@
+personal-bot license
+====================
+
+Copyright (c) 2026 personal-bot contributors
+
+This license covers the container images published from this repository and the
+files in it. In short: free to run for yourself, not free to repackage and
+resell.
+
+
+1. What you may do
+
+You may download, install and run the images and the files in this repository
+for your own personal, non-commercial use, on hardware you control. You may keep
+as many copies as you need for that, and you may modify anything here for your
+own use.
+
+
+2. What you may not do
+
+You may not do any of the following without the copyright holder's prior written
+permission:
+
+  a. sell, resell, rent, sublicense or otherwise charge for the images, for this
+     repository's contents, or for a product or service whose value is mostly
+     running them - including paid hosting, paid deployment, paid setup or paid
+     operation;
+
+  b. publish or distribute a modified version of the images, or a derivative
+     work built from them, as your own release;
+
+  c. remove, obscure or alter this license, the copyright notice or the
+     disclaimer that ships with the images.
+
+
+3. Third-party components
+
+Third-party code and components keep their own licenses, and those licenses
+govern those parts. In particular the console image bundles the noVNC client
+(MPL-2.0) and the Fusion Pixel font (OFL-1.1), and the sandbox image bundles the
+Model Context Protocol SDK (MIT). Their license files ship inside the images
+next to the components they cover.
+
+
+4. No warranty
+
+THE IMAGES AND THE FILES IN THIS REPOSITORY ARE PROVIDED "AS IS", WITHOUT
+WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR
+ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE IMAGES, THE FILES OR
+THE USE OR OTHER DEALINGS IN THEM.
+
+
+5. Your account, your risk
+
+This project drives a third-party desktop client. Doing that is outside that
+client's terms of service, and the account you use it with can be restricted or
+lost. That risk is yours alone, and so is the risk of data loss. Read the
+DISCLAIMER before you run anything.
+
+
+6. No unlawful use
+
+You may not use this project for any unlawful purpose, including spam,
+harassment, fraud, unauthorised access to any system or network, or the
+distribution of malicious content.
+
+
+7. Anything else
+
+Any right this license does not grant has to be requested from and granted by
+the copyright holder.
