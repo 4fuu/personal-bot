@@ -8,7 +8,7 @@ memory in files you own, and answers in the chats you already use.**
 [Quick start](#quick-start) ·
 [First start](#first-start) ·
 [Configuration](#configuration) ·
-[Disclaimer](#disclaimer)
+[How it works](#how-it-works) · [Disclaimer](#disclaimer)
 
 </div>
 
@@ -69,6 +69,23 @@ The stack does not read the client's events, does not watch its process, and
 does not use any third-party protocol implementation. The panel's live view is
 the client's own framebuffer, so you can log in by scanning a QR code and watch
 what it does.
+
+## How it works
+
+The assistant is one long-running agent with a single session per account,
+working one turn at a time. Its working memory is a rotating context window with
+a token budget: as the window fills, the stack sends staged reminders that ask
+the assistant to write notes and prepare a handoff, and at the limit the window
+rolls over to a fresh one. Notes are the long-term memory - each carries a short
+summary and a share of the token budget, and the stack keeps an active set of
+them in every new window, which also opens with the previous window's handoff
+and the chat's recent messages while the full history stays searchable. A small
+second model, the fast judge, reads a bounded slice of the recent conversation
+when it decides things like when to answer and whether to quote; it never writes
+the replies.
+
+More detail, and how the context handling compares with AstrBot, MaiBot,
+DeepSeek Harness and pi: [docs/how-it-works.md](docs/how-it-works.md).
 
 ## Requirements
 
