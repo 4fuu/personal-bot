@@ -115,7 +115,7 @@ export default {
   head: [
     ['meta', { name: 'theme-color', content: '#3a6ea5' }],
     ['meta', { property: 'og:type', content: 'website' }],
-    // Favicon: the dog-head pixel icon from the repository's assets/ directory,
+    // Favicon: the pixel chat-bubble icon from the repository's assets/ directory,
     // which the deploy workflow copies into the site root
     // (.github/workflows/docs-pages.yml). The SVG scales crisply; the ICO is
     // the fallback for browsers without SVG favicon support.
