@@ -47,8 +47,8 @@ the directories instead of `sudo chown`.
 
 ## First login and key extraction
 
-On first login, the driver extracts the local database key from the client under
-a debugger, which takes up to about 8 minutes on a virtual display. While
+On first login, the driver extracts the local database key from the client,
+which takes up to about 8 minutes on a virtual display. While
 extraction is in progress, **DB 密钥** in the left sidebar shows **密钥缺失**;
 once finished, it switches to **密钥正常**. The initial boot wait is controlled by
 `KEYX_TIMEOUT_S` (900 seconds by default), and a timeout is non-fatal—the driver

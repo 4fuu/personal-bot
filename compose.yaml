@@ -24,7 +24,7 @@ services:
     init: true
     shm_size: 1g
     restart: unless-stopped
-    # gdb needs ptrace to read the database key out of the client at first
+    # SYS_PTRACE is needed once, for the database key extraction at first
     # login (README.md, "First start"). Nothing else in the stack needs it, and
     # the container holds no secret of its own beyond the key it extracts, which
     # it writes into its own volume.

@@ -16,19 +16,18 @@ The stack runs the **official, unmodified QQ NT desktop client for Linux** on a
 virtual display inside a container. It interacts with that client in three
 specific ways:
 
-- **Database reading:** It copies the client's local SQLCipher database files
-  and decrypts that **private copy** (using a database key extracted once at
-  first login under `gdb`) to read messages, display names, and group
-  membership. The decrypted copy stays on your machine.
-- **Sending and per-message media download:** It preloads a small library into
-  the client at launch (`LD_PRELOAD`) that calls the client's own send function,
-  reads its built-in face table, and asks the client to download the image or
-  file attachment for a specific message when the assistant reads it. No client
-  file on disk is ever patched, replaced, or modified.
-- **Session resume click:** When the client returns to its account screen after
-  a restart, the driver clicks the **登录** button over the Linux accessibility
-  bus (`AT-SPI`) so a saved session resumes automatically. Initial QR-code
-  sign-in remains manual.
+- **Database reading:** It copies the client's local database files and reads
+  that **private copy** (with a database key extracted once at first login) to
+  get messages, display names, and group membership. The copy never leaves
+  your machine.
+- **Sending and per-message media download:** It loads a small library into
+  the client at launch that calls the client's own send path and asks the
+  client to download the image or file attachment for a specific message when
+  the assistant reads it. No client file on disk is ever patched, replaced, or
+  modified.
+- **Session resume click:** When the client returns to its saved-account screen
+  after a restart, the driver clicks the **登录** button once so a saved session
+  resumes automatically. Initial QR-code sign-in remains manual.
 
 The stack does not subscribe to the client's incoming event stream and does not
 use any third-party protocol reimplementation. Outbound network traffic from the

@@ -21,8 +21,7 @@ Each variable has a name and a kind—either **保密** (secret, the default) or
   (`[A-Za-z_][A-Za-z0-9_]*`, up to 64 characters). Secret values must be at
   least 8 characters long so the scrubber never matches ordinary short text.
 - **Reserved variables:** Sandbox-owned variables (`PATH`, `HOME`,
-  `HTTP_PROXY`, `HTTPS_PROXY`, `LD_PRELOAD`, `NODE_OPTIONS`, and related system
-  variables) cannot be overridden; the form names the rule if you enter one.
+  `HTTP_PROXY`, `HTTPS_PROXY`, `NODE_OPTIONS`, and related system variables) cannot be overridden; the form names the rule if you enter one.
 
 Changes apply immediately to the next command executed in the sandbox without
 restarting or rebuilding any container.

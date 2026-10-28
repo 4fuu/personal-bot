@@ -6,7 +6,7 @@ stay on the internal Docker networks.
 
 | Service | Role |
 | --- | --- |
-| `qq` | Runs the official, unmodified desktop client on a virtual display alongside the driver. Grants `SYS_PTRACE` solely so `gdb` can extract the database key on first login |
+| `qq` | Runs the official, unmodified desktop client on a virtual display alongside the driver. Holds `SYS_PTRACE` solely for the one-time database key extraction at first login |
 | `console` | Web admin panel. The only published service; fronts the driver API, bot API, and live VNC view behind a single password |
 | `bot` | Assistant service: runs the single-account agent session, manages notes memory, and reviews every outbound message |
 | `sandbox` | Command sandbox: runs an execution server that drops every command to an unprivileged user, mounts only the shared workspace, and holds no credentials |
@@ -15,7 +15,7 @@ stay on the internal Docker networks.
 
 | Host path / volume | Container path | Contents |
 | --- | --- | --- |
-| `./data/driver` | `/data/driver` | Extracted database key (`secrets/db_key`, mode `0600`), decrypted SQLite mirror (`mirror.db`), driver config (`config.json`) |
+| `./data/driver` | `/data/driver` | Extracted database key (`secrets/db_key`, mode `0600`), message mirror (`mirror.db`), driver config (`config.json`) |
 | `./data/bot` | `/data/bot` | Agent database (`bot.db`), model provider credentials (`pi/auth.json`, mode `0600`), secret store (`secrets/`), sticker files (`stickers/`) |
 | `./workspace` | `/workspace` | Agent files, installed skills, staged chat attachments, and full copies of truncated tool outputs |
 | `./logs` | `/out` | Diagnostic logs from the `qq` container: `qq.log`, `keyx.log`, `novnc.log` |

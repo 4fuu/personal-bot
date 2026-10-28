@@ -35,23 +35,22 @@ over HTTP at an address reachable from the container and set `QQ_DEB_URL`).
    **DB 密钥** indicator turns to **密钥正常** (**正常** on the **QQ** page).
 
 Whenever the client returns to its saved-account screen after a restart, the
-driver clicks **登录** automatically over the accessibility bus to resume the
+driver clicks **登录** automatically to resume the
 session; the **登录** button on the **QQ** page lets you trigger that click
 manually. You only need to scan a QR code again if you remove the `qq_profile`
 volume.
 
 ## Database key extraction
 
-The database key allows the driver to decrypt a **private copy** of the
-client's local SQLCipher database—all message IDs, senders, @mentions, quotes,
-and cached media paths are read from that copy without modifying any file
-belonging to the client. The key is stored on your host at
+The database key lets the driver read the client's local database. The driver
+reads only a **private copy** of it and never modifies any file belonging to
+the client. The key is stored on your host at
 `data/driver/secrets/db_key` (mode `0600`) and never leaves your machine.
 
 Extraction runs once on first login and remains valid across restarts. While
 the status shows **缺失**, extraction is still in progress (check
 `./logs/keyx.log` on the host). If the status shows **失效**, the client has
-rotated its key or the database copy cannot be decrypted; follow the
+rotated its key or the database copy can no longer be read; follow the
 re-extraction commands shown in the warning banner on the **QQ** page.
 
 ## Common startup errors

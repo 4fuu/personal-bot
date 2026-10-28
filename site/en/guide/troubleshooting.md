@@ -7,7 +7,7 @@
 | `error: both QQ_DEB_URL and the mounted deb ... are set` | Both package sources are configured; remove one of them |
 | Live view stays on the QR code screen | Normal on first login—scan the QR code with the mobile QQ app |
 | Sidebar shows **密钥缺失** | Database key extraction is still running; check `./logs/keyx.log` on the host (`/out/keyx.log` in the container). The driver keeps watching and switches to **密钥正常** automatically once the key lands |
-| Sidebar shows **密钥失效** | The client rotated its database key or the decrypted copy no longer matches; follow the re-extraction steps shown in the banner on the **QQ** page |
+| Sidebar shows **密钥失效** | The client rotated its database key or the database copy can no longer be read; follow the re-extraction steps shown in the banner on the **QQ** page |
 | Console pages return `502` | The `qq` or `bot` container is still starting up; check `docker compose logs qq bot` |
 | The bot never starts a turn | Check **待处理** on [Overview](./console/): at least one system admin and at least one conversation set to **参与** are both required before any turn can start |
 | Outbound messages are all blocked | Outbound review fails closed when Jev is missing a key or unreachable. Check the **Jev（出口审查）** card on [Models and Jev](./console/models) and set a valid API key |

@@ -33,33 +33,26 @@ console you manage it from, and one provides an isolated sandbox where the
 assistant's shell commands run.
 
 <p align="center">
-  <img src="assets/architecture.svg" alt="Architecture of one stack: the official chat client runs headless and writes its local database; a private decrypted copy of that database feeds the driver, which serves the console on :8080 and the bot on :8766 over HTTP and WebSocket, sends messages and downloads media through the client itself and clicks its login button; the bot runs its commands in the sandbox on :8791" />
+  <img src="assets/architecture.svg" alt="Architecture of one stack: the official chat client runs headless and writes its local database; the driver reads that database, serves the console and the bot, and sends messages and downloads media through the client itself; the bot runs its commands in the sandbox" />
 </p>
 
-- **Reading messages.** Incoming messages land in the client's local SQLCipher
-  database within a couple of seconds. The driver copies that database to a
-  private file and decrypts the copy, obtaining message IDs, senders,
-  @mentions, quote links, and cached media paths without reading from the
-  client's live process.
+- **Reading messages.** Incoming messages land in the client's local database
+  within a couple of seconds, and the driver reads them from there.
 - **Sending and media download.** Outbound text, built-in faces, images,
   stickers, files, @mentions, and quote replies go through the client's own
-  send function, paced by a single action queue with randomized human-like
-  delays. Because the desktop client only writes received images and files to
-  disk when a chat is open on screen, the same preloaded library also asks the
-  client to download the media file for a specific message when the assistant
-  needs to view it.
-- **Contact with the client process.** At first login, `gdb` sets a one-time
-  breakpoint to extract the database key, which stays valid across restarts. On
-  every launch, the container preloads a small library (`LD_PRELOAD`) that
-  exposes the client's send path, built-in face table, and per-message media
-  download. No client file on disk is ever patched, replaced, or modified.
+  send path, paced by a single action queue with randomized human-like delays.
+  When the assistant needs a received image or file that is not on disk yet,
+  the driver asks the client to download it.
+- **No modified files.** No client file on disk is ever patched, replaced, or
+  modified. [DISCLAIMER.md](DISCLAIMER.md) describes exactly how the stack
+  interacts with the client.
 
 ### The chat backend
 
 The backend is the **official QQ NT desktop client for Linux** (pinned to the
 build recorded in the release notes), running unmodified on a TigerVNC virtual
-display inside the `qq` container. Everything the assistant reads comes from a
-decrypted copy of the client's local database (plus on-demand downloads of
+display inside the `qq` container. Everything the assistant reads comes from the
+client's local database (plus on-demand downloads of
 received media for messages the assistant reads), and every message it sends
 goes through the client's own send path.
 
@@ -164,7 +157,7 @@ page, and scan the QR code in the live view using the mobile app. Check
 **自动登录** so future container restarts sign back in automatically.
 
 The first login takes several minutes while the driver extracts the local
-database key under a debugger (up to about 8 minutes on a virtual display).
+database key (up to about 8 minutes on a virtual display).
 Once extraction finishes, the database key status in the console changes to
 **密钥正常** (**正常** on the **QQ** page).
 
@@ -215,7 +208,7 @@ the web console rather than in `.env`.
 
 | Host path / volume | Container path | Contents |
 | --- | --- | --- |
-| `./data/driver` | `/data/driver` | Extracted database key (`secrets/db_key`, mode `0600`), decrypted SQLite mirror (`mirror.db`), driver config (`config.json`) |
+| `./data/driver` | `/data/driver` | Extracted database key (`secrets/db_key`, mode `0600`), message mirror (`mirror.db`), driver config (`config.json`) |
 | `./data/bot` | `/data/bot` | Agent state and notes (`bot.db`), model credentials (`pi/auth.json`, mode `0600`), secret store (`secrets/`), saved stickers (`stickers/`) |
 | `./workspace` | `/workspace` | Files created or read by the agent, installed skills, staged chat files, and full copies of truncated tool outputs |
 | `./logs` | `/out` | Diagnostic logs from the `qq` container (`qq.log`, `keyx.log`, `novnc.log`) |

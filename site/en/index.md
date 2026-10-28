@@ -20,7 +20,7 @@ hero:
 
 features:
   - title: Read messages
-    details: Reads message IDs, senders, @mentions, quotes, and cached media paths from a private decrypted copy of the client's local database without tapping the client's live message stream.
+    details: Reads messages from the client's local database without tapping the client's live message stream.
   - title: Send and download media
     details: Sends text, built-in faces, images, stickers, files, @mentions, and quote replies through the client's own send path—paced by a single queue with human-like jitter—and downloads received media on demand.
   - title: Long-term memory
@@ -50,7 +50,7 @@ the web panel you manage it from, and `sandbox` runs the assistant's shell
 commands as an unprivileged user.
 
 <p align="center">
-  <img src="../../assets/architecture.svg" alt="Architecture of one stack: the official chat client runs headless and writes its local database; a private decrypted copy of that database feeds the driver, which serves the console on :8080 and the bot on :8766 over HTTP and WebSocket, sends messages and downloads media through the client itself and clicks its login button; the bot runs its commands in the sandbox on :8791" />
+  <img src="../../assets/architecture.svg" alt="Architecture of one stack: the official chat client runs headless and writes its local database; the driver reads that database, serves the console and the bot, and sends messages and downloads media through the client itself; the bot runs its commands in the sandbox" />
 </p>
 
 ## Start here
