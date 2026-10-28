@@ -1,62 +1,67 @@
 # First start and QR login
 
-No image contains QQ. On its first start the `qq` container installs the pinned
-build from **exactly one** of two sources:
+No container image bundles the QQ client. On its first start, the `qq` container
+installs the pinned `.deb` package from **exactly one** of two sources:
 
-| Source | How to give it |
+| Source | How to configure it |
 | --- | --- |
-| A download URL | `QQ_DEB_URL=https://example.com/QQ_3.2.34_260924_amd64_01.deb` in `.env` |
-| A deb you already have | mount it at `/qq/QQ.deb` in `compose.yaml` (two lines to uncomment) and leave `QQ_DEB_URL` empty |
+| Download URL | Set `QQ_DEB_URL=https://example.com/QQ_3.2.34_260924_amd64_01.deb` in `.env` |
+| Local `.deb` file | Uncomment the `/qq/QQ.deb` volume mount in `compose.yaml` and leave `QQ_DEB_URL` empty |
 
-Either way the container verifies the file's sha256 against the pin baked into
-the image and **refuses to install anything else**, with an error that names the
-version it expected. The install lands in the `qq_install` volume, so later
-starts skip it. If you give neither source, or both, the container says so and
-prints both options rather than guessing.
+In both cases, the container verifies the file's SHA-256 digest against the
+hash baked into the image and **refuses to install any other build**, printing
+the expected version and digest on mismatch. The installed client lives in the
+`qq_install` volume, so subsequent starts skip installation. If neither source
+is provided—or if both are set—the container exits with instructions for both
+options.
 
-::: warning The official download URL answers 403
-The official URL does not serve the file without a signature. Download it from a
-mirror, check its sha256 yourself, then either serve it locally
-(`python3 -m http.server` plus `QQ_DEB_URL=http://127.0.0.1:8000/<file>`, with
-`network_mode: host` for the install step) or mount it as a file.
+::: warning The official download URL returns 403
+The official download URL requires a request signature and returns `403`
+without one. If you download the `.deb` from a mirror, verify its SHA-256
+digest yourself and mount it at `/qq/QQ.deb` in `compose.yaml` (or serve it
+over HTTP at an address reachable from the container and set `QQ_DEB_URL`).
 :::
 
-## QR login
+## QR-code login
 
-1. After `docker compose up -d`, open <http://localhost:8080> and sign in with
-   `CONSOLE_PASSWORD`.
-2. The panel's QQ page (the live view) is the client's own screen. When the QR
-   code appears, scan it with the phone app. **The scan is manual and yours to
-   do** - it is the only login step that needs you.
-3. Tick 自动登录 so later restarts resume without scanning.
-4. Once the scan succeeds, the driver reads the database key and the status
-   line's `db.key` turns to `"ok"`.
+1. After running `docker compose up -d`, open <http://localhost:8080> and sign
+   in with `CONSOLE_PASSWORD`.
+2. Open the **QQ** page in the left sidebar. The **实时画面** card streams the
+   client's screen; once the QR code appears, scan it with the mobile QQ app.
+   **Initial QR login is always manual.**
+3. Check **自动登录** on the client screen so future restarts resume without
+   another QR scan.
+4. Once sign-in completes, the driver extracts the database key and the
+   **DB 密钥** indicator turns to **密钥正常** (**正常** on the **QQ** page).
 
-When the client returns to its account page after a restart, the driver clicks
-登录 by itself and the saved session resumes; the 登录 button on the panel's QQ
-page is the manual retry for that step. A new scan is needed only after the
-profile has been recreated (the `qq_profile` volume removed).
+Whenever the client returns to its saved-account screen after a restart, the
+driver clicks **登录** automatically over the accessibility bus to resume the
+session; the **登录** button on the **QQ** page lets you trigger that click
+manually. You only need to scan a QR code again if you remove the `qq_profile`
+volume.
 
-## The key extraction
+## Database key extraction
 
-The key lets the stack decrypt a **private copy** of the client's own database -
-message ids, senders, mentions, quotes and images all come from that copy, and no
-file of the client is patched, replaced or written to. The key stays on your
-machine: `data/driver/secrets/db_key`, mode 0600.
+The database key allows the driver to decrypt a **private copy** of the
+client's local SQLCipher database—all message IDs, senders, @mentions, quotes,
+and cached media paths are read from that copy without modifying any file
+belonging to the client. The key is stored on your host at
+`data/driver/secrets/db_key` (mode `0600`) and never leaves your machine.
 
-It is extracted once, on first login, and stays valid across restarts. A status
-of `db.key = "missing"` means it has not finished; the log is `./logs/keyx.log`
-on the host. A status of `"invalid"` means the client changed its key or the
-copy no longer matches; follow the re-extract steps on the QQ page.
+Extraction runs once on first login and remains valid across restarts. While
+the status shows **缺失**, extraction is still in progress (check
+`./logs/keyx.log` on the host). If the status shows **失效**, the client has
+rotated its key or the database copy cannot be decrypted; follow the
+re-extraction commands shown in the warning banner on the **QQ** page.
 
-## When something is wrong
+## Common startup errors
 
-| Symptom | What it means |
+| Symptom | Cause and fix |
 | --- | --- |
-| `error: no QQ source: set exactly one of ...` | neither `QQ_DEB_URL` nor a mounted deb was given |
-| `error: sha256 mismatch: expected ... got ...` | the deb is not the pinned build; get the right file |
-| `error: both QQ_DEB_URL and the mounted deb ... are set` | remove one of the two |
-| The live view stays on the QR code | that is correct: a QR login is manual and yours to do |
-| The panel's pages answer 502 | the driver or the bot is not up yet; check `docker compose logs qq bot` |
+| `error: no QQ source: set exactly one of ...` | Neither `QQ_DEB_URL` nor a mounted `/qq/QQ.deb` was provided |
+| `error: sha256 mismatch: expected ... got ...` | The `.deb` file does not match the pinned build; replace it with the exact pinned version |
+| `error: both QQ_DEB_URL and the mounted deb ... are set` | Both sources are set; remove one of them |
+| Live view stays on the QR code screen | Normal on first login—scan the QR code with the mobile app |
+| Console pages return `502` | The `qq` or `bot` container is still starting; check `docker compose logs qq bot` |
 
-More in [Troubleshooting](./troubleshooting).
+See [Troubleshooting](./troubleshooting) for more diagnostic tips.

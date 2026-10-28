@@ -1,62 +1,82 @@
 # Workspace
 
-Three cards: environment variables, Skills, MCP servers. The first two are what
-the sandbox's commands can touch; the third is the external functions the
-assistant can call.
+The **工作区** page contains three cards: **环境变量** (environment variables),
+**Skills**, and **MCP 服务器** (MCP servers). The first two configure the
+environment and skills available inside the command sandbox, while the third
+connects external MCP tools.
 
-## 环境变量: environment variables
+## 环境变量 (Environment variables)
 
-Every command in the sandbox runs with these variables. A variable has a name and
-one of two kinds, 明文 (plain) or 保密 (secret); a secret is write-only, and any
-secret value is scrubbed from every result that reaches the model or the log as
-`[已隐藏:名字]` - a message carrying one is refused in code, before Jev.
+Every command executed in the sandbox runs with the variables configured here.
+Each variable has a name and a kind—either **保密** (secret, the default) or
+**明文** (plain):
 
-- The name must be a shell variable name (a letter first, at most 64 characters).
-- The sandbox's own fixed entries cannot be overridden: `PATH`, `HOME`, the proxy
-  settings, `LD_PRELOAD` and the rest are the host's to set, not the model's, and
-  the page names the rule.
-- A secret value must be at least 8 characters, so the scrubber cannot match
-  ordinary text.
+- **Write-only secrets and automatic scrubbing:** Secret values are stored on
+  the bot side and never returned to the browser or shown in logs. Any
+  occurrence of a secret value (including Base64 and URL-encoded forms) in
+  command output, search results, or tool responses is replaced with
+  `[已隐藏:NAME]` before reaching the model or the event log, and any outbound
+  chat bubble containing one is blocked in code before Jev review.
+- **Naming and length rules:** Variable names must be valid shell identifiers
+  (`[A-Za-z_][A-Za-z0-9_]*`, up to 64 characters). Secret values must be at
+  least 8 characters long so the scrubber never matches ordinary short text.
+- **Reserved variables:** Sandbox-owned variables (`PATH`, `HOME`,
+  `HTTP_PROXY`, `HTTPS_PROXY`, `LD_PRELOAD`, `NODE_OPTIONS`, and related system
+  variables) cannot be overridden; the form names the rule if you enter one.
 
-A change applies to the next command; nothing is rebuilt.
+Changes apply immediately to the next command executed in the sandbox without
+restarting or rebuilding any container.
 
 ## Skills
 
-Skills install into `/workspace/skills`, and **the model can read, edit and add
-them itself**. This card manages the *sources*: an address the installer keeps
-current on an interval.
+Skills live in `/workspace/skills`, where **the assistant can read, edit, and
+install them itself**. This card manages *skill sources*—Git repositories that
+the bot installs and updates on a schedule inside the sandbox:
 
-- An address is a GitHub shorthand (`owner/repo`) or an `https://` git address.
-  An SSH address, a local path or a URL that points at a file rather than a
-  repository is refused with the reason - the proxy tunnels only 443, and nothing
-  outside the workspace is visible to the sandbox.
-- The interval is 1 to 365 days, 7 by default.
-- Each row shows the commit it was installed at, when it last updated, and
-  正常 / 失败; a failure carries the reason and also appears in 概览's 待处理.
-  立即更新 runs the install now; 移除 drops the source while the skills it
-  installed stay in the workspace.
+- **Supported addresses:** A GitHub shorthand (`owner/repo`) or an `http(s)://`
+  Git repository URL. SSH URLs, local filesystem paths, and URLs pointing at a
+  single file or archive are rejected with an explanation (the sandbox can only
+  reach the internet over the HTTP(S) proxy and cannot see paths outside
+  `/workspace`).
+- **Update interval:** Choose 1, 3, 7 (default), 14, 30, or 90 days (1–365 days
+  supported by the API). Adding a source automatically adds its Git host and
+  `registry.npmjs.org` to the sandbox egress allowlist and starts the initial
+  install right away.
+- **Status and actions:** Each row shows the source address, installed Git
+  commit, last update time, and status (any failure reason is shown inline and
+  also surfaces in **待处理** on [Overview](./)). **立即更新** triggers an
+  immediate update; **删除** removes the source entry while leaving the files it
+  already installed in `/workspace/skills`.
 
-## MCP 服务器: MCP servers
+## MCP 服务器 (MCP servers)
 
-The model reaches a server only through `code_exec`, as
-`tools["server.function"](args)`; a function's name is looked up with
-`tool_search` first. The system prompt carries one line per server, frozen with
-the window, so disabling a server or a function does not change that line - the
-call is refused with the rule instead.
+The assistant discovers and calls MCP server functions through its script
+runner. Each server occupies one summary line in the system prompt, frozen for
+the life of the context window: adding or removing a server takes effect at the
+next window rollover, whereas **toggling a server or individual function on or
+off takes effect immediately**—calls to a disabled server or function are
+rejected in host code with a clear explanation without mutating the cached
+prompt prefix.
 
-- 添加 / 编辑 / 停用 / 删除, one row per server: status (connected / needs_auth /
-  error), the function count, how many are switched off, the transport and the
-  authorization state.
-- A row expands in place into the functions that server offers: name, description,
-  parameters and a switch each.
-- Three transports: Streamable HTTP, SSE and stdio (a stdio one runs in the
-  sandbox and reaches the network only through the proxy).
-- Three auth modes: none, headers (a header's value is the *name* of an
-  [environment variable](#环境变量-environment-variables), read at connect time,
-  never stored or returned) and OAuth.
-- A server name is a lowercase identifier so a script never has to quote it;
-  technical values (addresses, commands, client ids) are English letters, digits
-  and punctuation only, the form states the rule under the field and holds the
-  save until it is met.
+- **Server rows:** Each row shows the server's name, description, status pill
+  (**已连接** / **需要授权** / **出错** / **未检查** / **已停用**), discovered
+  function count (and how many are disabled), transport, and authorization
+  state, along with **授权** (for OAuth 2.1), **编辑**, **停用** / **启用**, and
+  **删除** buttons.
+- **Per-function switches:** Expanding a server row lists every function cached
+  from its last successful discovery—showing the function name, description,
+  parameter types, and required flags—with an individual enable/disable switch
+  for each function.
+- **Transports:** `Streamable HTTP`, `HTTP+SSE（旧）`, and `stdio（在沙箱里跑）`
+  (`stdio` servers run inside the sandbox and reach the network only through
+  the egress proxy).
+- **Authentication modes:** **不用认证** (none), **静态请求头** (static headers
+  whose values are the *names* of stored [environment variables](#环境变量-environment-variables),
+  resolved from the secret store at connect time and never stored in `bot.db`),
+  and **OAuth 2.1**.
+- **Field validation:** Server names are lowercase identifiers
+  (`[a-z][a-z0-9_]{0,31}`), and technical fields (URLs, commands, arguments,
+  client IDs) accept printable ASCII only, validated inline before saving.
 
-The OAuth flow has its own page: [MCP client](../mcp).
+For OAuth 2.1 client registration options and the authorization flow, see
+[MCP client (OAuth)](../mcp).

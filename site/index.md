@@ -4,7 +4,7 @@ layout: home
 hero:
   name: personal-bot
   text: 自托管的个人助理
-  tagline: 跑在你自己的机器上，记忆存在你自己拥有的文件里，在你已经在用的聊天软件里回复你。
+  tagline: 部署在自有设备上，记忆保存在本地文件，直接在日常使用的聊天软件中回复消息。
   # 头图槽位：把 release/personal-bot/assets/header.png 放进仓库后取消下面这行
   # 注释；文件名不同就改这个路径。站点根目录下的 /personal-bot/assets/ 由发布
   # workflow 从仓库的 assets/ 复制而来。
@@ -14,73 +14,65 @@ hero:
       text: 快速开始
       link: /guide/quick-start
     - theme: alt
-      text: 它是怎么工作的
+      text: 工作原理
       link: /guide/how-it-works
 
 features:
-  - title: 读
-    details: 收到的消息来自客户端自己数据库的一份私有解密副本，不接触客户端进程，就能拿到真实的消息 id、发送者、@、引用和图片。
-  - title: 写
-    details: 文字、图片、表情、@和引用回复都走客户端自己的发送函数，由一个带人类抖动的动作队列控制节奏。
-  - title: 记
-    details: 笔记由模型自己写下，是它唯一的长期记忆；每一轮、每次工具调用都记在可检索的日志里。
-  - title: 等
-    details: wait、唤醒词、定时任务，以及可选的空闲轮：一段时间没有动静时，它有一轮属于自己的时间。
-  - title: 用工具
-    details: 网页搜索和阅读、沙箱里的命令行和文件、技能、MCP 服务端——每个函数都能在面板里单独开关。
-  - title: 面板
-    details: 实时画面与登录、会话与策略、人设、记忆、表情包、定时、模型、安全、工作区、高级设置和日志，一个页面一个主题。
+  - title: 读取消息
+    details: 从客户端本地数据库的私有解密副本中读取真实的消息 ID、发送者、@提及、引用关系及缓存路径，不监听客户端内部消息流。
+  - title: 发送与媒体下载
+    details: 文字、小黄脸、图片、表情包、文件、@提及和引用回复均调用客户端自身接口发送，由单一队列按接近真人的随机间隔控制节奏，并按需下载指定消息的图片与文件。
+  - title: 长期记忆
+    details: 模型自己撰写与维护笔记，每条修订均锚定原始消息与历史事件；全部轮次与工具调用均记入可检索的事件日志。
+  - title: 延后跟进
+    details: 支持延时等待、唤醒词、管理员在私聊中设定的定时任务，以及在长时间无对话时自由活动的空闲轮。
+  - title: 工具与扩展
+    details: 支持网页搜索与网页阅读、隔离沙箱中的命令行与文件操作、脚本串联调用、Skills 技能以及 MCP 服务器（可按函数单独启停）。
+  - title: Web 管理面板
+    details: 涵盖实时画面与登录、会话策略、人设、记忆、表情包、定时任务、模型与服务商、安全与网络、工作区、高级设置及实时日志。
 ---
 
 <!-- 头图槽位在页面顶部的 frontmatter 里（hero.image，已注释）。 -->
 
-::: warning 先读这一段
-本项目驱动一个第三方桌面客户端，这不在该客户端服务条款允许的范围内，账号可能被限制或封禁。
-请使用有小号历史记录的账号、家庭宽带，并保留默认的发送节奏。私人研究项目，按"现状"提供，
-全部风险由使用者承担。运行前请先读 [免责声明](./guide/disclaimer)。
+::: warning 运行前必读
+本项目通过驱动第三方桌面客户端运行，不属于该客户端服务条款允许的范围，可能导致账号受限或封禁。请使用已有正常使用记录的小号，在家庭宽带环境下运行，并保持默认的发送节奏。本项目为个人研究项目，按“现状”提供，一切风险由使用者自行承担。运行前请先阅读[免责声明](./guide/disclaimer)。
 :::
 
-## 这是什么
+## 项目架构
 
-四个容器：一个在虚拟显示里运行聊天客户端，另外三个分别是模型、你用来操作它的面板，
-以及它的命令所在的沙箱。一个 stack 对应一个账号。
+整套服务由四个容器组成，一套实例对应一个账号：`qq` 容器在虚拟屏幕中运行官方桌面客户端，`bot` 容器运行模型，`console` 容器提供 Web 管理面板，模型的命令行操作则在隔离的 `sandbox` 容器中执行。
 
 ```
-┌──────────────────────────── one stack = one account ──────────────────────────┐
-│                                                                                  │
-│  chat client (official, unmodified, headless)                                    │
-│    │ writes              ▲ sends              ▲ clicks 登录                       │
-│    ▼                     │                    │                                  │
-│  private decrypted copy ──▶ driver API (HTTP + WebSocket)                        │
-│                              │                        │                          │
-│                              ▼                        ▼                          │
-│                          console :8080            bot :8766                      │
-│                          (the panel,              (the agent, notes,             │
-│                           the live view)           the send review)              │
-│                                                      │                           │
-│                                                      ▼                           │
-│                                                  sandbox :8791                   │
-│                                                  (every command, as an           │
-│                                                   unprivileged user)             │
-└──────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────── 一套实例 = 一个账号 ────────────────────────────┐
+│                                                                              │
+│  桌面聊天客户端（官方原版、无头运行）                                        │
+│    │ 写入数据库        ▲ 发送与按需下载      ▲ 自动点击“登录”               │
+│    ▼                   │                     │                               │
+│  私有解密副本 ────────▶ 驱动服务（HTTP + WebSocket）                        │
+│                            │                        │                        │
+│                            ▼                        ▼                        │
+│                        console :8080              bot :8766                  │
+│                        （管理面板、实时画面）     （模型、笔记、外发审核）   │
+│                                                      │                       │
+│                                                      ▼                       │
+│                                                  sandbox :8791               │
+│                                                  （以非特权用户执行命令）    │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 从这里开始
 
-- [快速开始](./guide/quick-start)：环境要求、clone、`.env`、`docker compose up -d`。
-- [首次启动与扫码登录](./guide/first-start)：QQ 从哪来、密钥怎么读、二维码谁扫。
-- [环境变量](./guide/env)：`.env` 里每一个变量的含义。
-- [控制台](./guide/console/)：面板的每一个页面，一页一个主题。
-- [MCP 客户端](./guide/mcp)：让一个用 OAuth 认证的 MCP 服务端注册这个模型。
+- [快速开始](./guide/quick-start)：环境要求、克隆仓库、配置 `.env`、启动容器。
+- [首次启动与扫码登录](./guide/first-start)：QQ 安装包来源、数据库密钥提取与手机扫码登录。
+- [环境变量（.env）](./guide/env)：`.env` 中各项变量的完整说明。
+- [控制台指南](./guide/console/)：管理面板各个页面的功能与设置项说明。
+- [MCP 客户端（OAuth）](./guide/mcp)：通过 OAuth 2.1 将模型注册到外部 MCP 服务器。
 
-## 模型：pi 支持的都能用
+## 支持 [pi](https://pi.dev) 生态内的全部模型
 
-模型跑在 [pi](https://pi.dev) 上：pi 支持的每一家服务商、每一个模型都能用，
-在[控制台](./guide/console/models)的 模型 页登录服务商、或填一个 key 就行。
-模型目录在机器人启动时拉取，之后每天自动刷新一次（`PI_OFFLINE=1` 时都不拉取），也可以随时手动刷新，新出的模型不用重启就会出现。
+模型运行在 [pi](https://pi.dev) 框架之上，支持 pi 集成的所有模型服务商与视觉模型。在控制台的[模型与 Jev](./guide/console/models)页面即可登录服务商或配置 API key。模型目录在服务启动时自动拉取，此后每天自动刷新一次（设置 `PI_OFFLINE=1` 时关闭联网拉取），也可随时在页面顶部手动刷新，新发布的模型无需重启容器即可选用。
 
-完整的项目说明在仓库的 [README](https://github.com/4fuu/personal-bot) 里；
-上下文与记忆的机制细节在 [docs/how-it-works.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.md)。
+完整项目说明见仓库 [README](https://github.com/4fuu/personal-bot)；轮次、上下文与记忆机制的详细对比见 [docs/how-it-works.zh-CN.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.zh-CN.md)。
 
 <!--
   站点头图是 frontmatter 里注释掉的 hero.image（文件来自仓库的 assets/）；

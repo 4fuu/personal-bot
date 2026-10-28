@@ -1,45 +1,46 @@
 # Environment variables (.env)
 
-`.env` is a plain env file next to `compose.yaml`: `KEY=value` lines and `#`
-comments, nothing else. Copy `.env.example` to `.env` and fill it in. These are
-all of the variables.
+`.env` is a standard Docker Compose environment file placed next to
+`compose.yaml`, containing only `KEY=value` lines and `#` comments. Copy
+`.env.example` to `.env` and fill in the values below.
 
-## Required
+## Required variables
 
-| Variable | What it is |
+| Variable | Purpose |
 | --- | --- |
-| `CONSOLE_PASSWORD` | the panel's password. It is the only thing standing between the internet and your panel, so make it long |
-| `DRIVER_TOKEN` | one of the internal tokens; the driver refuses to start without it. The console and the bot use it to call the driver |
-| `BOT_TOKEN` | one of the internal tokens; the console holds it and never hands it to the browser |
-| `SANDBOX_EXEC_TOKEN` | one of the internal tokens; the bot uses it to call the sandbox, where only root can read it |
+| `CONSOLE_PASSWORD` | Password for signing into the web console. This is the only gate in front of the panel, so use a long, strong password |
+| `DRIVER_TOKEN` | Internal bearer token for the driver API; the driver refuses to start without it, and only `console` and `bot` hold it |
+| `BOT_TOKEN` | Internal bearer token for the bot API; held by the console server and never sent to the browser |
+| `SANDBOX_EXEC_TOKEN` | Internal token used by `bot` to call the sandbox execution server; readable only by the root server process inside `sandbox`, never by the unprivileged command user |
 
-Generate the three tokens with `openssl rand -hex 32`. They never leave the
-stack: each service gets only the ones it needs.
+Generate each of the three tokens with `openssl rand -hex 32`. They never leave
+the internal stack, and each service receives only the tokens it needs.
 
-## QQ source: exactly one
+## QQ package source (choose one)
 
-| Variable | What it is |
+| Variable | Purpose |
 | --- | --- |
-| `QQ_DEB_URL` | the URL the `qq` container downloads the pinned build from. Leave it empty and mount a deb instead to install from a file |
+| `QQ_DEB_URL` | HTTP(S) URL from which the `qq` container downloads the pinned `.deb` on first start. Leave empty if you mount `/qq/QQ.deb` in `compose.yaml` instead |
 
-With both set, or with neither, the container refuses to start and says so.
-Details on [First start](./first-start).
+If neither source is configured—or if both are set—the container exits and
+prints instructions. See [First start and QR login](./first-start) for details.
 
-## Optional
+## Optional variables
 
-| Variable | Default | What it is |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `PI_OFFLINE` | `0` | `1` disables pi's model-catalog fetch, for fully offline runs |
-| `KEYX_TIMEOUT_S` | `900` | how long the first boot waits for the database-key extraction. Measured at up to about 8 minutes, so raise it on a slow machine; a timeout is not fatal, the driver keeps watching |
-| `PERSONAL_BOT_TAG` | empty (`latest`) | the image tag to run. Empty means the newest release; a tag such as `v2026.1025.0` pins one |
+| `PI_OFFLINE` | `0` | Set to `1` to disable fetching the online model catalog from `pi.dev` in offline environments |
+| `KEYX_TIMEOUT_S` | `900` | Maximum seconds the first boot waits for database key extraction before continuing in the background (extraction takes up to ~8 minutes on a virtual display; increase on slower machines) |
+| `PERSONAL_BOT_TAG` | empty (`latest`) | Container image tag to run. Leave empty to track `latest`, or set a release tag such as `v2026.1025.0` to pin a specific version |
 
-## The assistant's own settings are not environment variables
+## Assistant settings live in the console
 
-Which model, who may talk to it, what it may remember, which domains its commands
-may reach, how messages are batched, how the queue orders - all of that lives in
-the [console](./console/), takes effect as you change it, and needs neither an
-`.env` edit nor a rebuild.
+Model selection, conversation allowlists and reply modes, persona fields, memory
+limits, sandbox domain rules, message batching timers, and queue ordering are
+all configured in the [web console](./console/). Changes take effect without
+editing `.env` or recreating containers.
 
-`compose.yaml` also carries two screen variables (`SCREEN_W`, `SCREEN_H`, 1280x800
-by default) that set the live view's size; changing them means changing
-`compose.yaml` and rebuilding the qq image.
+`compose.yaml` also defines `SCREEN_W` and `SCREEN_H` (`1280` × `800` by
+default) on the `qq` service to set the virtual display resolution for the live
+view. If you change them in `compose.yaml`, run `docker compose up -d` to
+recreate the `qq` container with the new screen size.

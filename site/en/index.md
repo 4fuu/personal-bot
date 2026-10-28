@@ -4,7 +4,7 @@ layout: home
 hero:
   name: personal-bot
   text: A self-hosted personal assistant
-  tagline: It runs on your own machine, keeps its memory in files you own, and answers in the chats you already use.
+  tagline: Runs on your own machine, stores its memory in files you control, and replies in the chats you already use.
   # Header image slot: uncomment this line once
   # release/personal-bot/assets/header.png is in the repository, changing the
   # path if the file lands under another name. The site root's
@@ -20,75 +20,78 @@ hero:
       link: /en/guide/how-it-works
 
 features:
-  - title: Read
-    details: Received messages come from a private, decrypted copy of the client's own database - real message ids, senders, mentions, quotes and images, without touching the client's process.
-  - title: Write
-    details: Text, images, stickers, @mentions and quote replies go through the client's own send function, paced by one action queue with human-like jitter.
-  - title: Remember
-    details: Notes the assistant writes itself are its only long-term memory; every turn and tool call lands in a searchable log.
-  - title: Come back later
-    details: wait, wake words, scheduled tasks, and optional free turns - a turn of its own when nothing has happened for a while.
-  - title: Use tools
-    details: Web search and page reading, a shell and files in a sandbox, skills and MCP servers - each function switched on or off in the panel.
-  - title: Panel
-    details: Live view and login, conversations and policies, persona, memory, stickers, schedules, models, safety, workspace, advanced settings and logs - one page per topic.
+  - title: Read messages
+    details: Reads message IDs, senders, @mentions, quotes, and cached media paths from a private decrypted copy of the client's local database without tapping the client's live message stream.
+  - title: Send and download media
+    details: Sends text, built-in faces, images, stickers, files, @mentions, and quote replies through the client's own send path—paced by a single queue with human-like jitter—and downloads received media on demand.
+  - title: Long-term memory
+    details: Maintains its own notes with source anchors pointing back to exact messages and turns, alongside a searchable log of every turn and tool call.
+  - title: Follow up later
+    details: Supports timed waits, six-hour wake words, scheduled tasks configured in an admin's private chat, and optional free turns when chats are quiet.
+  - title: Tools and integrations
+    details: Includes web search and page reading, shell commands and file editing in an isolated sandbox, JavaScript tool chaining, skills, and MCP servers with per-function switches.
+  - title: Web console
+    details: Manage the live client screen and login, conversation policies, persona, memory, stickers, schedules, models, safety rules, workspace tools, advanced timing, and live logs.
 ---
 
 <!-- The header image slot is the commented hero.image in the frontmatter above. -->
 
 ::: warning Read this first
-This project drives a third-party desktop client, which is outside that client's
-terms of service and can get an account restricted or lost. Use a secondary
-account, a residential connection and the default pacing. Private research
-project, provided as is, and all of the risk is yours. Read the
-[disclaimer](./guide/disclaimer) before you run anything.
+This project drives a third-party desktop client, which violates that client's
+terms of service and can get an account restricted or banned. Use a secondary
+account with existing history, a residential connection, and the default send
+pacing. This is a private research project provided as is; you bear all risk.
+Read the [disclaimer](./guide/disclaimer) before running anything.
 :::
 
-## What it is
+## Architecture
 
-Four containers. One runs a chat client on a virtual display; the other three
-are the assistant, the panel you drive it from, and a sandbox the assistant's
-commands run in. One stack is one account.
+The stack runs four containers for a single chat account: `qq` runs the official
+desktop client on a virtual display, `bot` runs the assistant, `console` serves
+the web panel you manage it from, and `sandbox` runs the assistant's shell
+commands as an unprivileged user.
 
 ```
 ┌──────────────────────────── one stack = one account ──────────────────────────┐
 │                                                                                  │
 │  chat client (official, unmodified, headless)                                    │
-│    │ writes              ▲ sends              ▲ clicks 登录                       │
-│    ▼                     │                    │                                  │
-│  private decrypted copy ──▶ driver API (HTTP + WebSocket)                        │
+│    │ writes              ▲ sends & downloads   ▲ clicks 登录                     │
+│    ▼                     │                     │                                 │
+│  private decrypted copy ──▶ driver (HTTP + WebSocket)                            │
 │                              │                        │                          │
 │                              ▼                        ▼                          │
 │                          console :8080            bot :8766                      │
-│                          (the panel,              (the agent, notes,             │
-│                           the live view)           the send review)              │
+│                          (admin panel,            (agent session, notes,         │
+│                           live view)               outbound review)              │
 │                                                      │                           │
 │                                                      ▼                           │
 │                                                  sandbox :8791                   │
-│                                                  (every command, as an           │
+│                                                  (runs commands as an            │
 │                                                   unprivileged user)             │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Start here
 
-- [Quick start](./guide/quick-start): requirements, clone, `.env`, `docker compose up -d`.
-- [First start and QR login](./guide/first-start): where QQ comes from, how the key is read, who scans the QR code.
-- [Environment variables](./guide/env): what every variable in `.env` means.
-- [Console](./guide/console/): every page of the panel, one page per topic.
-- [MCP client](./guide/mcp): registering this assistant with an OAuth MCP server.
+- [Quick start](./guide/quick-start): system requirements, cloning, `.env` setup, and starting the stack.
+- [First start and QR login](./guide/first-start): providing the QQ package, database key extraction, and scanning the QR code.
+- [Environment variables (.env)](./guide/env): reference for every setting in `.env`.
+- [Console guide](./guide/console/): walkthrough of every page in the web panel.
+- [MCP client (OAuth)](./guide/mcp): connecting the assistant to OAuth 2.1 MCP servers.
 
-## Models: whatever pi supports
+## Works with every model [pi](https://pi.dev) supports
 
-The agent is built on [pi](https://pi.dev), so every provider and model pi supports
-is available: log a provider in, or add a key, on the console's
-[模型 page](./guide/console/models). The model catalog is fetched at bot start
-and refreshed automatically once a day (neither when `PI_OFFLINE=1`), and can be
-refreshed on demand, so new models appear without a restart.
+The assistant is built on [pi](https://pi.dev), so every model provider and
+vision-capable model supported by pi is available out of the box. Sign in to a
+provider or add an API key on the console's [Models and Jev](./guide/console/models)
+page. The model catalog is fetched at startup and refreshed once a day
+automatically (unless `PI_OFFLINE=1`), and can be refreshed on demand from the
+page header without restarting any container.
 
-The full project write-up is the repository's
-[README](https://github.com/4fuu/personal-bot); the context and memory
-mechanism is [docs/how-it-works.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.md).
+For the full repository overview, see the
+[README](https://github.com/4fuu/personal-bot); for the details of context
+windows, memory, and comparisons with other frameworks, see
+[docs/how-it-works.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.md).
 
 <!--
   The header image is the commented hero.image in the frontmatter (the file

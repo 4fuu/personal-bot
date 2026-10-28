@@ -1,193 +1,255 @@
-# How the assistant works: turns, context and memory
+# How the assistant works: turns, context, and memory
 
-personal-bot runs one assistant per account. It works one turn at a time, and
-everything it carries from one turn to the next lives in three places: a
-rotating context window, notes it writes itself, and an append-only log of its
-own turns and tool calls. This page lists what starts a turn, what happens
-during one, and how context and memory are kept, each in a few sentences. The
-rest of the stack (the containers, the panel, the sandbox) is described in the
-README.
+`personal-bot` runs one long-lived assistant session per account. It processes
+one turn at a time, and everything that persists from one turn to the next
+lives in three places: a rotating context window, notes written by the
+assistant itself, and an append-only log of its turns and tool calls. This
+document explains what starts a turn, how messages are batched and scheduled,
+how context windows rotate without breaking prompt caching, how notes work, and
+how this design compares with other projects.
 
 ## What starts a turn
 
-A turn always has a reason, and the panel's log shows it:
+Every turn has an explicit trigger reason recorded in the console log:
 
-- **Messages.** A private message, or a group message that @s the assistant,
-  replies to it or names it, starts a turn according to that conversation's
-  policy. Other group messages may start one when the assistant decides to join
-  in (below).
-- **Wake words.** When the assistant ends a turn quietly, it can arm a few words;
-  for six hours, any of them in that conversation starts a new turn without the
-  assistant being named.
-- **`wait`.** The assistant can say "look again in a while", from one minute to
-  one day. When the time comes the conversation reopens with its newest
-  messages. Up to ten waits in a row; a turn that starts there first cancels the
-  pending one.
-- **Scheduled tasks.** One-off or repeating tasks, each opening a turn in a
-  chosen conversation with the task's note as its input. They are created and
-  changed only in an admin's private chat.
-- **Free turns.** When a set number of minutes passes with no turn at all, the
-  assistant gets a turn of its own that belongs to no conversation, to spend on
-  whatever it finds interesting - searching, reading, using its tools, writing
-  notes - or on nothing. Off by default; the interval is a panel setting.
+- **Incoming messages:** A private message, or a group message that @mentions
+  the assistant, replies to one of its messages, or uses its nickname, alias,
+  or keyword, starts a turn when allowed by that conversation's policy.
+  Unaddressed group messages can also start a turn when the assistant decides
+  to join the conversation (see below).
+- **Wake words:** When the assistant finishes a turn without speaking (or while
+  waiting), it can leave a few wake words armed in that conversation. For the
+  next six hours, any message containing one of those words starts a new turn
+  even without a direct mention. The next turn in that conversation clears the
+  armed words.
+- **Timed waits:** The assistant can pause and check back on the current
+  conversation after anywhere from one minute to 24 hours. When the timer
+  expires, a turn opens with the conversation's latest messages. At most ten
+  consecutive waits are allowed; if another turn starts in that conversation
+  first, the pending wait is canceled.
+- **Scheduled tasks:** One-off or recurring tasks that open a turn in a target
+  conversation at a specified local time, passing the task's note as input.
+  Tasks can only be created, updated, or canceled from a system admin's private
+  chat while citing a message from that admin. If the bot was offline or paused
+  when a run was due, it fires once if at most an hour late, and is skipped and
+  logged if older.
+- **Free turns:** When a configured number of minutes passes with no turn of
+  any kind, the assistant opens a conversation-free turn of its own to spend on
+  whatever it finds interesting—searching the web, reading, using MCP tools,
+  updating notes—or nothing at all. Free turns are off by default (`0` minutes)
+  and can be enabled on the console's **高级** page.
 
-Every turn start resets the free-turn timer, waits and schedules survive a
-restart, and none of them piles up during downtime.
+Starting any turn resets the free-turn timer. Pending waits, wake words, and
+scheduled tasks are stored in SQLite, survive restarts, and never pile up
+into duplicate runs after downtime.
 
-## Batches and joining in
+## Batching, joining in, and queueing
 
-- **One decision per batch.** Messages are collected briefly before anything is
-  decided: longer while the same person keeps typing, shorter when someone else
-  answers, at most a second when the assistant is @'d, and never more than about
-  eight seconds for a whole batch.
-- **Joining in.** In a group where it may speak on its own, Jev (see
-  below) scores whether joining the conversation is natural; the
-  stack subtracts a small penalty when the assistant has just been talking, and
-  a little less when the batch @s it. A batch aimed only at other people is left
-  alone.
-- **Idle backoff.** After a few batches in a row where it stayed out, the next
-  check in that group waits longer, doubling up to a few minutes. Messages are
-  held, not dropped, and an @, its name, a wake word or a burst of messages ends
-  the delay at once.
-- **Queueing.** When several conversations are waiting, the one that has waited
-  too long goes first; Jev can also reorder them by urgency, a panel
-  setting that only logs its answers by default.
+- **Per-conversation batching:** Rapid-fire messages in a conversation are
+  collected into a single batch before a turn decision is made. The debounce
+  waits 2 seconds in a quiet chat, 5 seconds while a turn is running, 2 seconds
+  while the same sender keeps typing, 0.5 seconds when another sender chimes in,
+  at most 1 second when the assistant is @mentioned, and at most 8 seconds in
+  total (all measured from message arrival time so stream lag never splits a
+  batch).
+- **Joining group conversations:** In groups where proactive speaking is
+  enabled, batches that @mention only other people are ignored immediately. For
+  everything else, [Jev](https://typesafe.ai/) estimates the probability that
+  joining the conversation right now is natural. The host then subtracts a
+  bounded penalty (up to `0.3` by default) based on how recently the assistant
+  spoke in that group, its recent share of messages, how low the group's
+  talkativeness slider is set, and time-of-day quiet rules. If a message in the
+  batch @mentions the assistant, that penalty is reduced slightly (`0.1`).
+- **Idle backoff:** After two consecutive group batches end without a reply
+  (either declined by the join-in gate or ended silently by the model), the
+  next join-in evaluation in that group is delayed by 15 seconds, doubling on
+  each further silent batch up to 5 minutes. Messages continue accumulating in
+  the batch rather than being dropped, and a direct @mention, nickname/alias,
+  wake word, or a burst of six or more messages ends the delay immediately.
+- **Reply timing:** After a batch passes the trigger gate,
+  [Jev](https://typesafe.ai/) can score whether the assistant should answer
+  immediately, pause briefly, or wait a little longer for follow-up messages
+  (capped at 30 seconds for mentions and admins, or at the conversation's
+  private/group cap, with ±20 % jitter). New messages that arrive during that
+  pause join the same batch.
+- **Turn queue:** Only one turn runs at a time across the account. Mentions and
+  private chats take priority over group join-ins and timer wakes, and any
+  conversation that has waited longer than the starvation limit (120 seconds by
+  default) moves to the front. Within the same priority class,
+  [Jev](https://typesafe.ai/) can score waiting conversations by urgency to
+  reorder them.
 
-## During a turn
+## Inside a turn
 
-- **New messages arrive mid-turn.** A message from the conversation the turn is
-  in is handed to the running turn between tool calls, so the assistant sees the
-  conversation move. During a free turn, a batch from any conversation that
-  passed the checks above is handed in the same way. A message that arrives just
-  as a turn ends goes back to be judged as a batch of its own.
-- **Speaking is optional.** Only what the assistant sends reaches the chat; it
-  may end a turn without a word. Every send is checked before it leaves:
-  citations for anything specific it says, and what may be said where.
-- **Interests.** The assistant notes content it finds interesting, so later
-  turns - a wait, a free turn, a conversation that touches the topic - can pick
-  it up again.
+- **Mid-turn messages:** If new messages arrive in the active conversation
+  while a turn is running, they are injected into the running turn between tool
+  calls so the assistant can see the conversation evolve before replying. While
+  a free turn is running, any conversation batch that passes debounce and
+  trigger checks is handed over the same way. Messages that arrive just as a
+  turn finishes are returned to the inbox for the next turn.
+- **Optional replies and outbound review:** Only text sent through the send tool
+  reaches the chat; ending a turn silently is normal. Every send must cite the
+  messages, notes, or history records it draws on. Before any bubble is sent,
+  the host blocks cross-chat private or secret citations (unless authorized by
+  an admin), scrubs any stored secret values, and runs per-bubble
+  [Jev](https://typesafe.ai/) checks.
+- **Autonomous exploration:** The assistant records topics and details it finds
+  interesting into notes, allowing later turns, timed waits, or free turns to
+  pick them up naturally.
 
-## One session, rotating windows
+## One session, rotating context windows
 
-The assistant keeps a single session for the whole life of the account, but its
-working memory is not one transcript that grows forever. It is a sequence of
-context windows, each with a token budget, and a window is replaced when tokens
-- never a turn count - say so. While a window is open, its beginning never
-changes, which keeps the model provider's prompt cache valid.
+An account has a single continuous identity and history, but its working memory
+is not a single transcript that grows forever or gets repeatedly re-summarized
+in place. Instead, context is managed as a sequence of windows, each bounded by
+a token budget:
 
-## Staged reminders
+- **Frozen prefix for prompt caching:** While a window is open, its system
+  prompt and window bootstrap never change. Notes in the bootstrap are sorted
+  deterministically, and no timestamps or counters are placed in the prefix, so
+  the model provider's prompt cache stays valid across every turn in the window.
+- **Staged tail reminders:** As token usage climbs, the host appends reminders
+  to the end of the newest turn (never modifying the cached prefix):
+  - at **15 %, 30 %, and 50 %** of the window limit: create or update notes;
+  - at **60 %, 70 %, and 80 %**: update notes, write a handoff, and roll over
+    to a new window when the current topic reaches a natural pause;
+  - shortly before the **hard limit** (`window - min(16k, window / 4)`): a
+    final warning that the next turn will force an automatic rollover without a
+    handoff.
+  Each reminder includes the window's actual token numbers and clearly marks
+  itself as a host notice rather than a user message. If token usage jumps past
+  multiple thresholds at once, only the highest crossed reminder is sent.
 
-As a window fills, the stack appends reminders to its newest part, never to the
-cached beginning:
+## Notes: long-term memory
 
-- at 15 %, 30 % and 50 % of the budget: update the notes;
-- at 60 %, 70 % and 80 %: additionally write a handoff and roll over;
-- one final reminder shortly before the hard limit.
+Notes are written and maintained by the assistant itself and serve as its
+long-term memory across windows.
 
-Each reminder carries the window's real numbers (used, limit, roughly what is
-left), its place in the series, and what ignoring it costs. Every one is marked
-as a stack reminder rather than a request from a person, and only the highest
-tier crossed is sent.
+- **One-line summaries:** Every note has a required summary of at most 200
+  characters. Search results and the window bootstrap include only these
+  summaries—never the full note bodies—so keeping up to 20 active notes in
+  context is inexpensive, and full note bodies are read on demand. Updating a
+  note's body requires updating its summary as well.
+- **Quotas and token budget:** A window can create at most 10 new notes by
+  default (editing existing notes does not count toward that limit). Active
+  notes also share the window's token budget: writes begin warning at 15 % of
+  the window and refuse further growth past 20 %, while edits that shorten a
+  note or delete an obsolete one are always permitted.
+- **Automatic active set at rollover:** The assistant never manually pins or
+  unpins notes. When a window rolls over, the host selects the next window's
+  active set (up to 20 notes and 15 % of the window by default) in a fixed
+  order:
+  1. notes marked **常驻** (pinned) by an admin in the console;
+  2. notes created or edited during the closing window;
+  3. remaining notes ranked by decayed usage score (direct citations weigh
+     most, 1-hop linked citations through a note's evidence or message range
+     weigh next, and reads/searches weigh least), with
+     [Jev](https://typesafe.ai/) contributing up to a 15 % adjustment on the
+     top candidates.
+- **Append-only revisions and anchors:** Notes are never overwritten in place.
+  Every create, edit, or delete appends a new revision carrying a host-recorded
+  anchor (window ID, event record, conversation, message cursor, cited
+  evidence, and optional message range), so every revision remains traceable to
+  the exact conversation context that produced it.
 
-## Notes: the long-term memory
+## Rolling over to a new window
 
-Notes are written by the assistant itself and are its only long-term memory.
+A window can roll over in three ways:
 
-- Every note carries a summary of at most 200 characters, and every list shows
-  the summary, never the body - so scanning many notes is cheap, and a body is
-  read only when it is needed.
-- Notes share the window's token budget: a write warns at 15 % of the window
-  and is refused past 20 %; shrinking a note or deleting one is always allowed,
-  because the budget refuses growth and never tidying.
-- Each new window keeps an active set - at most 20 notes and 15 % of the
-  window - which the stack picks at rollover: the admin's standing notes first,
-  then the notes written or edited in the closing window, then the rest by
-  measured usage, with Jev allowed to weigh in.
-- Everything else stays archived and searchable. Notes are append-only and
-  anchored to the messages and actions they came from, so a note keeps pointing
-  at its sources after it is edited.
+- **By the assistant:** Once the window is at least 60 % full, the assistant can
+  roll over by writing a brief four-part handoff (current topics, progress,
+  open to-dos, and agreements, capped at roughly 4,000 tokens). Calls below
+  60 % usage are refused so context is not discarded prematurely.
+- **At the hard token limit:** If usage reaches the hard limit, the host opens
+  a new window automatically with no handoff.
+- **By an admin in the console:** Clicking **立即轮换** on the **概览** or
+  **人设** page schedules a rollover at the next turn boundary regardless of
+  current token usage. It requires a short reason, which is placed at the very
+  top of the new window's bootstrap.
 
-## Rollover
+Every window after the first opens with a fixed host orientation note (plus the
+admin's reason on a manual rollover), followed by the handoff (when present),
+the active notes' summaries, the titles of any notes archived at this rollover,
+and the current chat's recent messages. When a window opens without a handoff,
+the opening note instructs the assistant to recover context in order—active
+notes first, then messages around the latest note anchor, then its own history
+records, and finally full-text search—so users are never asked to repeat
+themselves.
 
-- The assistant can roll over on its own by writing a handoff in four short
-  parts: the current topics, progress, open to-dos and agreements. The tool
-  refuses the call while the window is less than 60 % full, because a rollover
-  throws the window's context away. The handoff is capped at about 4 000
-  tokens, because it opens - and then sits in the cached prefix of - the next
-  window.
-- At the hard limit the stack rolls over by itself with no handoff at all. That
-  window's context is not replayed.
-- An admin can roll over from the panel at any time, with a reason that
-  opens the next window.
+## Jev: structured decisions and safety checks
 
-## What a new window opens with
+[Jev](https://typesafe.ai/) is TypeSafe AI's decision model. It never writes
+chat replies or executes tools; instead, the host asks it structured yes/no
+probability questions (0–1) and multi-level scoring questions (0–2) and applies
+the result within hard code bounds:
 
-Every window after the first begins with a fixed opening note, followed by the
-active notes, the handoff (when there is one) and the chat's recent messages.
-The previous window's transcript is not replayed, but it stays reachable:
+- **Group join-in (0–1 probability):** Whether joining a group chat right now
+  is natural, before subtracting the host's activity penalty. Active by
+  default when a group's speech mode allows proactive replies.
+- **Reply timing (0–2 score):** Whether to answer immediately, pause briefly,
+  or wait longer for follow-up messages. Ships in **只记录不生效** (shadow) mode
+  by default.
+- **Turn order (0–2 score per waiting chat):** How urgently each queued
+  conversation needs a reply, subject to priority classes and the starvation
+  guard. Ships in **只记录不生效** (shadow) mode by default.
+- **Quoting (0–1 probability):** Whether the first bubble of a reply should
+  quote the message it answers (targets older than 30 messages or 10 minutes
+  are always quoted). Ships in **只记录不生效** (shadow) mode by default.
+- **Outbound review (0–1 probability per bubble):** Checked on every send:
+  - **泄露密钥** (secret leak): whether a bubble exposes a complete API key,
+    token, password, database key, or verification code. Always active; if Jev
+    is unreachable, outbound review fails closed and sends nothing.
+  - **没标引用** (uncited claim): whether a bubble states a specific fact about
+    a person or event not covered by its citations or recent chat context. Off
+    by default.
+  - **自我重复** (self-repetition): whether a bubble repeats what the assistant
+    already said recently in the same chat. Ships in **只记录不生效** (shadow)
+    mode by default.
+- **Sandbox network gate (0–1 probability):** When a command in the sandbox
+  requests a domain that is on neither the allowlist nor the denylist, Jev
+  judges whether the command reasonably needs that domain and is not using a
+  paste or exfiltration service. Passing domains are saved to the allowlist,
+  failing ones to the denylist, and unreachable Jev defaults to deny.
+- **Active-note scoring at rollover (0–2 score per candidate):** Scores up to
+  eight candidate notes by how likely they are to be needed in the next window,
+  adjusting their usage score by up to 15 %.
 
-- notes, by search and by reading bodies;
-- the assistant's own history - which windows exist, what happened in one, what
-  surrounds a given record;
-- the chat log itself.
+For the configurable conversation, queue, and review checks, the console lets
+you set the threshold, add a custom criterion in plain language, and switch
+modes between **关闭** (off), **只记录不生效** (shadow: Jev is queried and
+logged, while the default rule acts), and **启用** (active).
 
-The opening note gives that recovery order: notes first, then the messages
-around the last anchor, then the history by anchor, then search.
+Whenever a question judges a conversation, the host builds a bounded context
+slice of up to roughly 6,000 tokens from Jev's 32,000-token window—dropping the
+oldest complete messages first, never splitting a message in half, and
+recording how many older messages were omitted. Stored secrets are scrubbed
+from every request before it leaves the host, and checks that evaluate only
+nearby facts (quoting, self-repetition, outbound review, and active-note
+scoring) do not receive the assistant's persona.
 
-## Jev: the judging model
+## Comparison with other projects
 
-[Jev](https://typesafe.ai/) is TypeSafe AI's decision model. It never writes replies or does
-anything itself; it answers short yes/no questions with a probability, and the
-stack compares that against a threshold. It is used in these places:
+The table below summarizes how `personal-bot` and four related projects manage
+context windows and long-term memory, based on each project's public
+documentation as of 2026-10-26.
 
-- **Joining in.** Whether joining a group conversation is natural right now
-  (the stack then subtracts its own penalty, see above). Acts by default.
-- **Reply timing.** How long to wait for more messages before answering.
-- **Quoting.** Whether a reply should quote the message it answers.
-- **Queue order.** Which waiting conversation needs an answer most urgently.
-- **Outbound review.** Every bubble, before it leaves: does it carry a
-  credential (always checked), does it repeat what the assistant already said
-  there, does it pass on a specific private fact it cannot cite (off by
-  default).
-- **Network gate.** A domain the sandbox asks for that is on neither the allow
-  list nor the block list is judged; a pass is added to the allow list.
-- **Active notes.** At rollover it can help weigh which notes stay in the next
-  window's active set.
-
-Each decision has its own panel setting - off, shadow (Jev is asked and its
-answer logged, the plain rule still acts) or on - with a threshold and an
-optional extra criterion. New decisions ship in shadow, so the log shows what
-Jev would have done before it is trusted with anything.
-
-When a question is about a conversation, Jev reads it through one shared
-builder: the recent messages in order, plus - where the question is about the
-assistant's own speech - what the assistant recently said there. The slice is
-bounded to about 6 000 tokens of Jev's 32 000-token window: the oldest whole
-messages are dropped first, a message is never cut in half, and the state
-records how many were dropped. Every request is scrubbed of secret values before
-it leaves, and the questions that judge nearby context read no persona.
-
-## Compared with other projects
-
-The facts below come from each project's own documentation, linked at the end of
-this page, as of 2026-10-26.
-
-| Project | What it is | Context windows | Long-term memory |
+| Project | Scope | Context window management | Long-term memory |
 | --- | --- | --- | --- |
-| **personal-bot** | a self-hosted assistant for one chat account | rotating windows with a token budget, staged reminders, rollover with a written handoff; old windows stay searchable | notes written by the assistant, with summaries, a token budget and a stack-picked active set |
-| [AstrBot](https://github.com/AstrBotDevs/AstrBot) | a chatbot framework for many IM platforms | per-conversation context, compressed automatically at 82 % of the model's window: drop whole rounds (the default), or an LLM summary that keeps the newest 15 % | none built in; a knowledge base holds documents for retrieval, and group history can be injected |
-| [MaiBot](https://github.com/Mai-with-u/MaiBot) | a chatbot framework aimed at group chat | a recent-message window whose older history is summarized by a dedicated model when it is trimmed | A-Memorix: vector, graph and BM25 retrieval over extracted memories, per chat stream by default |
-| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | DeepSeek's open-source agent harness | an append-only session log the context is derived from; automatic compaction at 80 % of the routed model's window keeps the newest 16 % verbatim; oversized tool outputs are trimmed first | none built in; reference setups connect third-party memory servers over MCP |
-| [pi](https://github.com/earendil-works/pi) | the TypeScript agent framework this bot builds on | a session stored as an append-only tree; automatic compaction near the limit summarizes older turns and keeps the newest 20 000 tokens; `/compact` on demand | project files (instructions, skills) are context; no chat memory of its own |
+| **personal-bot** | Self-hosted personal assistant for a single chat account | Rotating windows with a frozen prefix, staged token reminders, and a four-part handoff at rollover; past windows stay searchable as raw logs | Assistant-written notes with one-line summaries, a token budget, append-only revisions with message anchors, and a host-selected active set per window |
+| [AstrBot](https://github.com/AstrBotDevs/AstrBot) | Multi-platform chatbot framework | Per-conversation context compressed automatically at 82 % of the model window by dropping older rounds (default) or summarizing while keeping the newest 15 % | No built-in conversational memory; provides a document knowledge base for retrieval and optional group history injection |
+| [MaiBot](https://github.com/Mai-with-u/MaiBot) | Group-focused chatbot framework | Sliding recent-message window whose trimmed history is summarized by a dedicated model | A-Memorix: vector, graph, and BM25 retrieval over extracted memories, isolated per chat stream by default |
+| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | Open-source agent harness by DeepSeek | Context derived from an append-only session log; compacts automatically at 80 % of the routed model's window, keeping the newest 16 % verbatim after trimming large tool outputs | No built-in memory store; reference setups connect external memory servers over MCP |
+| [pi](https://github.com/earendil-works/pi) | TypeScript agent framework that `personal-bot` builds on | Append-only session tree; automatic compaction near the window limit summarizes older turns while keeping roughly the newest 20,000 tokens (plus manual `/compact`) | Project instruction files and skills in context; no built-in chat memory |
 
-Two of these, pi and DeepSeek Harness, keep the raw session and replace older
-spans with a summary in place. personal-bot instead opens a new window and keeps
-the old one searchable: a rollover costs a cache miss, but the history is never
-re-summarized and stays exactly as it happened. AstrBot and MaiBot compress a
-single conversation and add a retrieval store on top - AstrBot's knowledge base,
-MaiBot's A-Memorix - while personal-bot keeps its memory as notes the assistant
-writes and cites. DeepSeek Harness is the only one of the five that leaves memory
-entirely to plug-in MCP servers.
+Both `pi` and DeepSeek Harness keep a single running session and replace older
+spans with an in-place summary when the context fills up. `personal-bot`
+instead closes the window, opens a fresh one with a handoff and active note
+summaries, and leaves the old window untouched and searchable: rollover incurs
+one prompt-cache miss, but past turns are never lossily re-summarized. AstrBot
+and MaiBot compress per-chat history and pair it with an external retrieval
+store (AstrBot's knowledge base or MaiBot's A-Memorix), whereas `personal-bot`
+keeps memory as explicit, source-anchored notes that the assistant writes,
+edits, and cites across all conversations.
 
 ### Sources
 
@@ -197,8 +259,7 @@ entirely to plug-in MCP servers.
 - MaiBot: [memory configuration](https://docs.mai-mai.org/en/manual/configuration/amemorix-config),
   [memory management](https://docs.mai-mai.org/en/manual/webui/memory-management),
   [model roles](https://docs.mai-mai.org/en/develop/llm-providers)
-  (the repository moved from the MaiM-with-u organisation to Mai-with-u; the old
-  address redirects)
+  (the repository moved from `MaiM-with-u` to `Mai-with-u`; old URLs redirect)
 - DeepSeek Harness: [compaction](https://deepseek-harness.github.io/deepseek-harness/en/reference/subsystems/compaction),
   [connecting a memory server](https://deepseek-harness.github.io/deepseek-harness/en/guide/mcp-memory),
   [product page](https://www.deepseek.com/en/harness/)

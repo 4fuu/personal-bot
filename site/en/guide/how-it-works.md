@@ -1,72 +1,77 @@
 # How it works
 
-The assistant is one long-running agent with a single session per account,
-working one turn at a time. This page is the mechanism overview; the full detail
-is the repository's
-[docs/how-it-works.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.md)
-and this page links to it rather than repeating it.
+Each account runs as a single long-lived agent session that processes one turn
+at a time. This page summarizes the core mechanisms; for the full walkthrough
+and a side-by-side comparison with other projects, see
+[docs/how-it-works.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.md).
 
 ## What starts a turn
 
-- **Messages.** A private message, or a group message that @s the assistant,
-  replies to it or names it, starts a turn according to that conversation's
-  policy; other group messages may start one when it decides to join in.
-- **Wake words.** When it ends a turn quietly, it can arm a few words; for six
-  hours, any of them in that conversation starts a new turn.
-- **`wait`.** It can say "look again in a while", from one minute to one day;
-  when the time comes the conversation reopens with its newest messages.
-- **Scheduled tasks.** Set in an admin's private chat, each opening a turn in a
-  chosen conversation with the task's note as its input.
-- **Free turns.** When a set number of minutes passes with no turn at all, it
-  gets a turn of its own that belongs to no conversation. Off by default; the
-  interval is set on [Advanced](./console/advanced).
+- **Messages:** A private message, or a group message that @mentions the
+  assistant, replies to it, or uses its nickname, alias, or keyword, starts a
+  turn according to that conversation's policy; unaddressed group messages can
+  also start a turn when the assistant decides to join in.
+- **Wake words:** When ending a turn quietly, the assistant can arm a few wake
+  words in that conversation; for the next six hours, any message containing
+  one of them starts a new turn.
+- **Timed waits:** The assistant can pause and check back on a conversation
+  after one minute to 24 hours; when the timer expires, a turn opens with the
+  latest messages.
+- **Scheduled tasks:** Configured in a system admin's private chat; each run
+  opens a turn in the target conversation with the task's note as input.
+- **Free turns:** When a configured number of minutes passes with no turn at
+  all, the assistant gets a conversation-free turn of its own. Off by default;
+  configure the interval on [Advanced settings](./console/advanced).
 
-## One batch, one decision
+## Batching and joining in
 
-Messages are collected briefly first: longer while the same person keeps typing,
-shorter when someone else answers, at most a second when it is @'d, never more
-than about eight seconds for a whole batch. In a group, Jev scores whether
-joining in is natural; the stack subtracts a small penalty when it has just been
-talking, a little less when the batch @s it. After a few batches in a row where
-it stayed out, the next check waits longer - messages are held, not dropped. When
-several conversations are waiting, the one that has waited too long goes first,
-and Jev may reorder the rest by urgency.
+Incoming messages in a chat are briefly batched before a turn starts: waiting
+slightly longer while the same sender keeps typing, shorter when another sender
+replies, at most one second on an @mention, and at most eight seconds overall.
+In groups where proactive speaking is enabled, [Jev](https://typesafe.ai/)
+scores whether joining the conversation is natural, and the host subtracts a
+small penalty when the assistant has just spoken there (reduced slightly when
+the batch @mentions it). After consecutive silent batches in a group, the next
+join-in check backs off—holding messages without dropping them—until an
+@mention, wake word, or message burst arrives. When multiple conversations are
+waiting, the starvation guard serves long-waiting chats first, and Jev can
+reorder the rest by urgency.
 
 ## One session, rotating windows
 
-The working memory is not one transcript that grows forever. It is a sequence of
-context windows, each with a token budget, and a window is replaced when tokens -
-never a turn count - say so. While a window is open its beginning never changes,
-which keeps the model provider's prompt cache valid. As a window fills, the stack
-sends staged reminders that ask it to write notes and prepare a handoff; at the
-hard limit the stack rolls over by itself. A new window opens with a fixed opening
-note, the active notes, the handoff and the chat's recent messages; the previous
-window is not replayed, but its notes, its own history and the chat log all stay
-reachable.
+Working memory is a sequence of token-budgeted context windows rather than an
+endlessly growing transcript, and windows rotate based on token usage rather
+than turn counts. While a window is open, its prefix never changes, keeping the
+model provider's prompt cache valid. As token usage rises, the host appends
+staged reminders to update notes and write a four-part handoff; at the hard
+limit, it rolls over automatically. Each new window opens with a fixed
+orientation note, the handoff (when present), active note summaries, and recent
+chat messages, while past windows and archived notes stay searchable through
+tools.
 
-## Notes: the only long-term memory
+## Notes: long-term memory
 
-Notes are written by the assistant itself; each carries a summary of at most 200
-characters and a share of the token budget. Every new window keeps an active set
-- the pinned notes, the notes written or edited in the closing window, then the
-rest by measured usage - and everything else stays archived and searchable. Notes
-are append-only and anchored to the messages and actions they came from, so a note
-keeps pointing at its sources after it is edited. Browse them on
-[Memory](./console/memory).
+Notes are written and updated by the assistant itself; each note has a summary
+of at most 200 characters and shares the window's token budget. At every
+rollover, the host selects an active set—admin-pinned notes, notes written or
+edited in the closing window, and the highest-scoring notes by decayed
+usage—while archiving the rest for on-demand search. Notes are append-only and
+anchored to the messages and actions they came from, so every revision stays
+traceable to its source context. Browse them on [Memory](./console/memory).
 
-## Jev: yes/no judgments
+## Jev: structured decisions and safety checks
 
-[Jev](https://typesafe.ai/) is TypeSafe AI's decision model.
+[Jev](https://typesafe.ai/) is TypeSafe AI's decision model. It never writes
+replies; instead, it answers structured yes/no probability questions (0–1) and
+multi-level scoring questions (0–2) within hard bounds enforced by the host. It
+is used for group join-in, reply timing, turn-queue ordering, quote decisions,
+per-bubble outbound safety review, judging unknown domains requested by the
+sandbox, and scoring candidate notes at rollover. Configurable decisions can be
+set to **关闭** (off), **只记录不生效** (shadow: queried and logged while the
+default rule acts), or **启用** (active) on their respective console pages.
 
-Jev never writes replies; it answers short yes/no questions with a probability,
-and the stack compares that against a threshold. It is used for joining in, reply
-timing, quoting, queue order, the review of every outbound bubble, the network
-gate for a domain on neither list, and which notes stay active at rollover. Each
-decision has its own mode - off, shadow (asked and logged, the plain rule still
-acts) or on - and a new decision ships in shadow.
+## Comparison with other projects
 
-## Compared with other projects
-
-The side-by-side comparison of the context handling (AstrBot, MaiBot, DeepSeek
-Harness and pi) is the last part of
+For a comparison of context window and memory designs across `personal-bot`,
+AstrBot, MaiBot, DeepSeek Harness, and `pi`, see the final section of
 [docs/how-it-works.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.md).

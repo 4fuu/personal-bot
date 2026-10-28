@@ -1,63 +1,74 @@
 # Disclaimer
 
-Read this before you run anything from this repository.
+Read this document in full before running anything from this repository.
 
-## Not affiliated with Tencent
+## No affiliation with Tencent
 
-personal-bot is an independent, third-party interoperability project. It has **no
-affiliation, partnership, authorisation or endorsement relationship with Tencent
-or with QQ**, and it is not an official Tencent product. "QQ", "Tencent" and
-related marks belong to their respective owners. Nothing here is provided,
-reviewed or approved by Tencent.
+`personal-bot` is an independent, third-party interoperability project. It has
+**no affiliation, partnership, authorization, or endorsement relationship with
+Tencent or QQ**, and it is not an official Tencent product. "QQ", "Tencent",
+and related trademarks belong to their respective owners. Nothing in this
+project is provided, reviewed, or approved by Tencent.
 
-## What it does, plainly
+## What the software actually does
 
-The stack runs the **official, unmodified QQ NT desktop client for Linux** inside
-a container, on a virtual display. It does three things with that client:
+The stack runs the **official, unmodified QQ NT desktop client for Linux** on a
+virtual display inside a container. It interacts with that client in three
+specific ways:
 
-- it reads messages out of a **private, decrypted copy** of the client's own
-  local database, which never leaves your machine;
-- it sends messages by calling the client's **own send function** through a small
-  library the container preloads into the client at launch - no file of the
-  client is patched, replaced or written to;
-- it clicks the client's own 登录 button over the accessibility bus when the
-  client returns to its account page, so a saved session resumes on its own. A
-  QR login stays manual, and it is yours to do.
+- **Database reading:** It copies the client's local SQLCipher database files
+  and decrypts that **private copy** (using a database key extracted once at
+  first login under `gdb`) to read messages, display names, and group
+  membership. The decrypted copy stays on your machine.
+- **Sending and per-message media download:** It preloads a small library into
+  the client at launch (`LD_PRELOAD`) that calls the client's own send function,
+  reads its built-in face table, and asks the client to download the image or
+  file attachment for a specific message when the assistant reads it. No client
+  file on disk is ever patched, replaced, or modified.
+- **Session resume click:** When the client returns to its account screen after
+  a restart, the driver clicks the **登录** button over the Linux accessibility
+  bus (`AT-SPI`) so a saved session resumes automatically. Initial QR-code
+  sign-in remains manual.
 
-It reads nothing else. It does not read your contacts beyond the names the
-client itself shows, it does not listen to any event stream of the client, and it
-sends nothing anywhere except the model provider you configure and the MCP
-servers you connect.
+The stack does not subscribe to the client's incoming event stream and does not
+use any third-party protocol reimplementation. Outbound network traffic from the
+stack goes only to the model providers you configure (plus the `pi.dev` model
+catalog unless `PI_OFFLINE=1`), [Jev](https://typesafe.ai/) for outbound review
+and gating (with stored secrets scrubbed beforehand), the web-search provider
+you configure, the MCP servers you connect, and the domains allowed through the
+sandbox's egress proxy.
 
-## The risk is yours
+## You assume all account and data risk
 
-Automating a chat client is outside that client's terms of service. The account
-you run this with can be **restricted, suspended or permanently lost**, and your
-local message history can be lost with it. That risk is yours, and you take it on
-voluntarily.
+Driving a desktop chat client through automation violates that client's terms
+of service. Any account used with this project may be **restricted, suspended,
+or permanently banned**, and its local chat history may be lost. You take on
+that risk voluntarily and in full.
 
-To keep it as small as it can be:
+To reduce the likelihood of account restrictions:
 
-- use a secondary account that already has some history, not a fresh one;
-- run on a residential connection, not a datacenter IP;
-- keep the default send pacing, and do not raise it;
-- keep the client's own version, and do not let it update itself.
+- Use a secondary account with established history rather than a newly
+  registered account.
+- Run the stack on a residential network connection rather than a datacenter IP.
+- Keep the default send pacing and do not increase the message rate limits.
+- Keep the pinned client build and do not allow the client to self-update.
 
-## Provided as is
+## Provided "as is" without warranty
 
-This project is provided **as is** and **as available**, without warranty of any
-kind, express or implied, including merchantability, fitness for a particular
-purpose, non-infringement, availability, accuracy or uninterrupted operation. To
-the maximum extent permitted by law, the authors and copyright holders are not
-liable for any direct, indirect, incidental, special, punitive or consequential
-damage - including account restriction or loss, data loss, lost profits or
-business, or service interruption - arising from the use of, or the inability to
-use, this project.
+This software is provided **as is** and **as available**, without warranty of
+any kind, express or implied, including but not limited to warranties of
+merchantability, fitness for a particular purpose, non-infringement,
+availability, accuracy, or uninterrupted operation. To the maximum extent
+permitted by applicable law, the authors and copyright holders shall not be
+liable for any direct, indirect, incidental, special, punitive, or
+consequential damages—including account restriction or loss, data loss, loss of
+profits or business, or service interruption—arising out of the use of, or
+inability to use, this project.
 
-## No unlawful use
+## Lawful use only
 
-You may not use this project for any unlawful purpose, including spam,
-harassment, fraud, unauthorised access to any system or network, or the
-distribution of malicious content. You are responsible for making sure your use
-complies with the laws that apply to you and with the terms of every platform you
-connect it to.
+You must not use this project for any unlawful or abusive purpose, including
+spam, harassment, fraud, unauthorized access to any computer system or network,
+or the distribution of unlawful or malicious content. You are solely
+responsible for ensuring that your deployment and use comply with all
+applicable laws and platform terms.

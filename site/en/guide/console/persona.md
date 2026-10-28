@@ -1,23 +1,30 @@
 # Persona
 
-The persona page is the long one: four tabs over one save bar, holding every
-identity field the system prompt carries.
+The **人设** page manages every identity field rendered into the assistant's
+system prompt. It organizes the fields across four tabs above a shared save bar
+that tracks unsaved changes:
 
 | Tab | Fields |
 | --- | --- |
-| 基本 (basic) | 昵称 (nickname, how groups call it), 别名 (aliases, added with Enter - they take part in @ matching and wake-word judgement) |
-| 风格 (style) | 性格 (who it is: background, character), 行为风格 (when to speak, initiative, not talking over people), 回复风格 (wording, length, punctuation) |
-| 示例 (examples) | example dialogs: one user line, one assistant line, added in pairs |
-| 禁忌 (never) | 禁忌话题 (never-mention topics - these are also handed to the outbound review) |
+| **基本** (Basic) | **昵称** (nickname used in chats) and **别名** (aliases, added with Enter; also used for mention and wake detection) |
+| **风格** (Style) | **性格** (background and personality), **行为风格** (when to speak, initiative, conversational etiquette), and **回复风格** (phrasing, length, punctuation) |
+| **示例** (Examples) | **示例对话** (example dialogs): paired user and assistant lines included as few-shot style examples |
+| **禁忌** (Never mention) | **禁忌话题** (topics added with Enter and listed under the system prompt's `绝不提及` section so the assistant never brings them up) |
 
-## When a change takes effect
+## When changes take effect
 
-The system prompt is frozen for the whole context window, so identity changes
-take effect **at the next rollover** - the banner above the tabs says so. To make
-one act now, use 立即轮换 in the page header: it asks for a reason (required,
-saying why the window is being rolled over by hand), and that reason opens the
-next window's bootstrap and rides in the log record.
+To keep the model provider's prompt cache valid, the system prompt is frozen for
+the entire life of a context window. Saving edits on this page updates the
+stored identity immediately, and the new system prompt takes effect **at the
+next window rollover** (as noted in the banner above the tabs).
 
-A rollover throws the window's context away, so the assistant's own tool refuses
-one while the window is less than 60 % full - that is what the handoff it writes
-is for; see [How it works](../how-it-works).
+To apply your changes right away, save them and click **立即轮换** in the page
+header. A modal will prompt you for a brief rollover reason (required, up to
+500 characters); the bot will then open a fresh window with the updated persona
+at the next turn boundary and record your reason in both the log and the new
+window's opening note.
+
+While the assistant's own rollover tool is only accepted once a window is at
+least 60 % full (and requires a four-part handoff), an admin's manual
+**立即轮换** from the console has no usage floor and can be triggered at any
+time (see [How it works](../how-it-works)).

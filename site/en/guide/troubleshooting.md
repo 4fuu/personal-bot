@@ -1,29 +1,30 @@
 # Troubleshooting
 
-| Symptom | What it means |
+| Symptom | Cause and fix |
 | --- | --- |
-| `error: no QQ source: set exactly one of ...` | neither `QQ_DEB_URL` nor a mounted deb was given; see [First start](./first-start) |
-| `error: sha256 mismatch: expected ... got ...` | the deb is not the pinned build; get the right file |
-| `error: both QQ_DEB_URL and the mounted deb ... are set` | remove one of the two |
-| The live view stays on the QR code | that is correct: a QR login is manual and yours to do |
-| `db.key = "missing"` | the key extraction has not finished. The log is `./logs/keyx.log` on the host (`/out/keyx.log` inside the container). The driver keeps watching, so the status turns to `"ok"` on its own once the key lands |
-| `db.key = "invalid"` | the client changed its key, or the private copy no longer matches. Follow the re-extract steps on the QQ page |
-| The panel's pages answer 502 | the driver or the bot is not up yet; check `docker compose logs qq bot` |
-| The bot starts no turn at all | look at 概览's 待处理 first: at least one admin and one conversation in the allow list are both required |
-| Not one message goes out | the outbound review fails closed when Jev is unreachable. Check its state on [Models](./console/models) and set the key |
-| The sandbox cannot install a skill or reach a source | the domain is not on the allow list. Look at 网络 on [Safety](./console/safety); deleting a wrong entry makes it judged again |
-| A persona edit changed nothing | identity takes effect at the next window, or use 立即轮换 on the page |
+| `error: no QQ source: set exactly one of ...` | Neither `QQ_DEB_URL` nor a mounted `/qq/QQ.deb` was provided; see [First start and QR login](./first-start) |
+| `error: sha256 mismatch: expected ... got ...` | The `.deb` file does not match the pinned client build; use the exact pinned version |
+| `error: both QQ_DEB_URL and the mounted deb ... are set` | Both package sources are configured; remove one of them |
+| Live view stays on the QR code screen | Normal on first login—scan the QR code with the mobile QQ app |
+| Sidebar shows **密钥缺失** | Database key extraction is still running; check `./logs/keyx.log` on the host (`/out/keyx.log` in the container). The driver keeps watching and switches to **密钥正常** automatically once the key lands |
+| Sidebar shows **密钥失效** | The client rotated its database key or the decrypted copy no longer matches; follow the re-extraction steps shown in the banner on the **QQ** page |
+| Console pages return `502` | The `qq` or `bot` container is still starting up; check `docker compose logs qq bot` |
+| The bot never starts a turn | Check **待处理** on [Overview](./console/): at least one system admin and at least one conversation set to **参与** are both required before any turn can start |
+| Outbound messages are all blocked | Outbound review fails closed when Jev is missing a key or unreachable. Check the **Jev（出口审查）** card on [Models and Jev](./console/models) and set a valid API key |
+| Sandbox commands cannot install a skill or reach a host | The target domain is blocked by the egress proxy. Open **网络** on [Safety](./console/safety) to move the domain to **放行** (or delete the entry so the next request is judged again) |
+| Persona edits have not taken effect | The system prompt is frozen for the life of the current context window; edits apply at the next rollover, or immediately at the next turn boundary if you click **立即轮换** in the page header |
 
-## Where the logs are
+## Where logs live
 
-- The panel's [Logs](./console/logs) page: driver, bot and panel events,
-  filterable and live.
-- `./logs/` on the host: the `qq` container's own diagnostics, which **may contain
-  chat content** - do not share them.
+- **[Logs](./console/logs) page in the console:** Live, filterable feed of
+  driver actions, bot turn trajectories, Jev decisions, and panel events.
+- **`./logs/` on the host:** Low-level diagnostics from the `qq` container
+  (`qq.log`, `keyx.log`, `novnc.log`). **These files may contain chat text**—do
+  not share them publicly without redacting personal data.
 
-## Still stuck
+## Reporting an issue
 
-Bring these when you ask: the image tag (`PERSONAL_BOT_TAG` or `latest`), the
-output of `docker compose ps`, the tail of `./logs/qq.log` and `./logs/keyx.log`
-with chat content removed, and a screenshot of the panel's [概览](./console/)
-(mock data is fine too).
+When asking for help, include the image tag (`PERSONAL_BOT_TAG` or `latest`),
+the output of `docker compose ps`, the tail of `./logs/qq.log` and
+`./logs/keyx.log` with all chat content and account identifiers removed, and a
+redacted or mock-mode screenshot of the console's [Overview](./console/) page.

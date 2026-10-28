@@ -1,36 +1,55 @@
 # Memory
 
-The memory page is the notes browser. Notes are written and edited by the
-assistant itself and are its only long-term memory; each carries a summary of at
-most 200 characters, and every list shows the summary, never the body - so
-scanning many notes is cheap, and a body is read only when it is needed.
+The **记忆** page is the browser for the assistant's notes. Notes are written
+and updated by the assistant itself and serve as its long-term memory; each
+note carries a one-line summary of at most 200 characters that the assistant's
+search results and window bootstrap display in place of the full body.
 
-## The list and its filters
+## Searching, filtering, and inspecting notes
 
-The toolbar holds the search box, the status filter (active / archived / all),
-the visibility filter (open / private / secret) and more, with the advanced
-filters as a disclosure at the end. Each row of the result list is one note:
-title, summary, status, visibility, window. Clicking one opens its detail - the
-body, the revision history including tombstones, and each revision's anchor
-context: which message and turn it came from, which stretch of the conversation
-it covers.
+The toolbar at the top provides **全文搜索** (full-text search over titles and
+bodies), **状态** (**全部** / **活跃** / **已归档**), and **可见性** (**全部** /
+**公开** / **私聊学到的** / **机密**), plus an **高级筛选** disclosure for
+filtering by **关于** (`self`, `person:uid`, or `conv:id`), **窗口** (for example
+`w37`), and **反链** (backlinks such as `msg:7698...`). Directly below the
+toolbar, a single line shows the most recent note operation with a link to the
+logs.
 
-The filters and the open note ride in the URL, so a filtered list or one note can
-be linked and reloaded. The 常驻 switch in the detail is the owner's handle:
-a pinned note is in every active set whatever its usage score, and the assistant
-has no way to set it itself.
+Each row in the result list shows the note's title, status badge (**活跃**,
+**已归档**, or **已删除**), an optional **常驻** badge, its visibility badge,
+and its anchor timestamp. Selecting a row opens the detail pane beside the list:
 
-## 设置: two limits
+- **常驻 (Pinned) switch:** Located in the detail header. Notes marked **常驻**
+  are included in every new window's active set regardless of usage score. Only
+  an admin can toggle this switch in the console; the assistant has no tool to
+  set or clear it.
+- **摘要 (Summary) and 内容 (Content):** Shows the latest revision's one-line
+  summary and full body (deleted notes show a tombstone notice while preserving
+  all prior revisions below).
+- **修订历史 (Revision history):** Lists every revision of the note, with a
+  **详情（锚点 / 来源 / 反链）** disclosure showing the window, event record,
+  conversation, chat cursor, message range, and cited evidence for that
+  revision.
+- **锚点上下文 (Anchor context):** Clicking **查看上下文** on any revision loads
+  the surrounding history records, chat messages around the cursor, cited
+  evidence messages, and summarized message range; every reference chip is
+  clickable.
 
-The 设置 popover in the page header holds two numbers; a change takes effect at
-the next window:
+Active filters, the selected note ID, and the open revision number are all
+reflected in the URL hash, so any filtered view or specific note revision can
+be bookmarked or reloaded.
 
-| Setting | Default | What it is |
+## 设置 (Settings): note limits
+
+Clicking **设置** in the page header opens a popover with two limits:
+
+| Setting | Default | Meaning |
 | --- | --- | --- |
-| 活跃笔记上限 | 20 | the most active notes a new window keeps |
-| 每窗口新笔记 | 10 | the most new notes one window may write |
+| **活跃笔记上限** (Max active notes) | `20` | Maximum number of active notes carried into each new context window |
+| **每窗口新笔记** (New notes per window) | `10` | Maximum number of new notes the assistant may create in a single window (editing existing notes does not count) |
 
-The stack picks the active set as each window opens: the owner's pinned notes,
-the notes written or edited in the closing window, then the rest by measured
-usage. Everything else stays archived and searchable. The mechanism is on
-[How it works](../how-it-works).
+At each rollover, the host builds the new window's active set from admin-pinned
+(**常驻**) notes, notes written or edited in the closing window, and the
+highest-scoring remaining notes by decayed usage (up to the count cap and 15 %
+of the window's tokens). All other notes are archived and remain searchable.
+See [How it works](../how-it-works) for details.

@@ -1,48 +1,53 @@
 # compose and data volumes
 
-`compose.yaml` describes four services; one stack is one account. No port needs
-publishing except the console's 8080.
+`compose.yaml` defines the four services that make up a single-account stack.
+Only the console's port `8080` is published to the host; all other service ports
+stay on the internal Docker networks.
 
-| Service | What it is |
+| Service | Role |
 | --- | --- |
-| `qq` | the chat client (official, unmodified, headless) plus the driver. It holds the ptrace capability for the one key read at first login and nothing else |
-| `console` | the panel. The only service meant to be published; behind one password it fronts the driver API and the live view |
-| `bot` | the assistant: one agent session, notes memory, and a review pass over every outbound message |
-| `sandbox` | where the assistant's commands run: an exec server that drops every command to an unprivileged user, one volume, no secret of its own |
+| `qq` | Runs the official, unmodified desktop client on a virtual display alongside the driver. Grants `SYS_PTRACE` solely so `gdb` can extract the database key on first login |
+| `console` | Web admin panel. The only published service; fronts the driver API, bot API, and live VNC view behind a single password |
+| `bot` | Assistant service: runs the single-account agent session, manages notes memory, and reviews every outbound message |
+| `sandbox` | Command sandbox: runs an execution server that drops every command to an unprivileged user, mounts only the shared workspace, and holds no credentials |
 
-## Where the data lives
+## Persistent data layout
 
-| Host path | Mounted at | Holds |
+| Host path / volume | Container path | Contents |
 | --- | --- | --- |
-| `./data/driver` | `/data/driver` | `secrets/db_key` (0600), `mirror.db`, `config.json` |
-| `./data/bot` | `/data/bot` | `bot.db`, `pi/` (`auth.json` 0600), `secrets/`, `stickers/` |
-| `./workspace` | `/workspace` | the agent's files and the full copies of truncated output |
-| `./logs` | `/out` | the `qq` container's own logs: `qq.log`, `keyx.log`, `novnc.log` |
-| `qq_profile` (volume) | `/home/qq/.config/QQ` | the client's profile: login state, databases, image cache |
-| `qq_install` (volume) | `/opt/QQ` | the installed client build |
+| `./data/driver` | `/data/driver` | Extracted database key (`secrets/db_key`, mode `0600`), decrypted SQLite mirror (`mirror.db`), driver config (`config.json`) |
+| `./data/bot` | `/data/bot` | Agent database (`bot.db`), model provider credentials (`pi/auth.json`, mode `0600`), secret store (`secrets/`), sticker files (`stickers/`) |
+| `./workspace` | `/workspace` | Agent files, installed skills, staged chat attachments, and full copies of truncated tool outputs |
+| `./logs` | `/out` | Diagnostic logs from the `qq` container: `qq.log`, `keyx.log`, `novnc.log` |
+| `qq_profile` (volume) | `/home/qq/.config/QQ` | Client profile: login session, encrypted databases, and media cache |
+| `qq_install` (volume) | `/opt/QQ` | Installed client build |
 
-`./data/bot`, `./workspace` and `./logs` belong to uid 1000 (see
-[Quick start](./quick-start)); the two named volumes need nothing.
+The host directories `./data/bot`, `./workspace`, and `./logs` must be owned by
+UID `1000` (see [Quick start](./quick-start)); the two named volumes need no
+manual ownership changes.
 
-## The workspace and the sandbox
+## Workspace and sandbox isolation
 
-`./workspace` is shared by the bot and the sandbox and by nothing else. The
-sandbox has no other mount, so it cannot read the mirror, `bot.db` or the
-client's files, and its only route to the internet is the bot's egress proxy:
-the sandbox sits on an internal compose network that has no route out of the
-stack, and the bot is the only other service on it. Which domains the proxy
-allows is reviewed in the 网络 card on the [Safety](./console/safety) page.
+`./workspace` is shared exclusively between `bot` and `sandbox`. Because the
+sandbox has no other volume mounts, it cannot read `mirror.db`, `bot.db`, stored
+secrets, or client files. On the network side, `sandbox` is attached only to an
+internal Compose network (`sandbox_net`) with no external gateway, where `bot`
+is the only other peer. Every outbound HTTP(S) request from a sandbox command
+must go through the bot's egress proxy, whose allowlist and denylist are managed
+in the **网络** card on the [Safety](./console/safety) page.
 
-## The logs may contain chat content
+## Logs and privacy
 
-The files under `./logs` are diagnostics the stack writes while it runs, and they
-may contain chat content, so keep them private and do not share them. The panel's
-[Logs](./console/logs) page is a different thing: it folds the driver's, the
-bot's and the panel's own events into one filterable feed.
+Files under `./logs` on the host are low-level runtime logs from the `qq`
+container and may contain chat text; keep them private and redact personal
+details before sharing excerpts. The console's [Logs](./console/logs) page is a
+separate structured feed that combines driver actions, bot turn trajectories,
+and console events in one filterable view.
 
 ## Backups
 
-Backing up is copying `./data`, `./workspace` and the two named volumes. Losing
-the client's profile (`qq_profile`) costs a new QR scan; losing `qq_install`
-costs one reinstall on the next start. The update steps are on
+To back up an instance, copy `./data`, `./workspace`, and the `qq_profile` and
+`qq_install` named volumes. Losing `qq_profile` requires scanning a new QR code
+and loses local client history; losing `qq_install` simply triggers a clean
+reinstall of the pinned client on the next start. For upgrade instructions, see
 [Updating](./updating).

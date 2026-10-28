@@ -100,7 +100,7 @@ const enSidebar = [
 export default {
   lang: 'zh-CN',
   title: 'personal-bot',
-  description: '自托管的个人助理：跑在你自己的机器上，记忆存在你自己的文件里',
+  description: '自托管的个人助理：部署在自有设备上，记忆保存在本地文件',
   base: '/personal-bot/',
   // cleanUrls stays off: GitHub Pages serves the built files as they are, and
   // every .html link resolves there without depending on extension stripping.
@@ -131,7 +131,7 @@ export default {
       label: '简体中文',
       lang: 'zh-CN',
       title: 'personal-bot',
-      description: '自托管的个人助理：跑在你自己的机器上，记忆存在你自己的文件里',
+      description: '自托管的个人助理：部署在自有设备上，记忆保存在本地文件',
       themeConfig: {
         nav: [
           { text: '快速开始', link: '/guide/quick-start' },
@@ -190,7 +190,7 @@ export default {
       link: '/en/',
       title: 'personal-bot',
       description:
-        'A self-hosted personal assistant: it runs on your own machine and keeps its memory in files you own',
+        'A self-hosted personal assistant that runs on your own machine and stores its memory in files you control',
       themeConfig: {
         nav: [
           { text: 'Quick start', link: '/en/guide/quick-start' },

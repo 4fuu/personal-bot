@@ -1,18 +1,16 @@
 # 快速开始
 
-这一页把一个空机器带到"面板能打开、二维码能扫"。首次启动的细节（QQ 从哪来、
-密钥怎么读）在 [首次启动与扫码登录](./first-start)。
+本页介绍如何在一台空机器上完成部署、打开管理面板并扫码登录。关于安装包校验与数据库密钥提取的细节，请参阅[首次启动与扫码登录](./first-start)。
 
 ## 环境要求
 
-- Linux x86_64，或在 Linux 虚拟机里运行的 macOS / Windows。
-- Docker 24+ 或 Podman 4+，带 `compose`。
-- 约 2 GB 内存、5 GB 磁盘，用于镜像和客户端配置。
-- 聊天后端的一个小号，不要用新号。
-- 一个模型服务商的 API key（Anthropic、OpenAI、OpenRouter，或 pi 支持的任何一家），
-  供模型使用。其余部分没有它也能跑。
+- Linux x86_64，或运行 Linux 虚拟机的 macOS / Windows。
+- Docker 24+ 或 Podman 4+（含 `compose`）。
+- 约 2 GB 内存、5 GB 磁盘空间（用于存放容器镜像和客户端配置数据）。
+- 一个已有正常使用记录的 QQ 小号（切勿使用新注册账号）。
+- [pi](https://pi.dev) 支持的任意视觉模型服务商账号或 API key（如 Anthropic、OpenAI、OpenRouter、DeepSeek 等），以及用于外发审查与判断的 [Jev](https://typesafe.ai/) API key。
 
-## 四步起来
+## 四步启动
 
 ```sh
 git clone https://github.com/4fuu/personal-bot.git
@@ -20,9 +18,7 @@ cd personal-bot
 cp .env.example .env
 ```
 
-编辑 `.env`：设置 `CONSOLE_PASSWORD`，用 `openssl rand -hex 32` 生成三个令牌，
-并选择一种 QQ 来源（见 [首次启动](./first-start)）。每个变量的含义在
-[环境变量](./env) 里。
+编辑 `.env`：设置面板登录密码 `CONSOLE_PASSWORD`，用 `openssl rand -hex 32` 生成三个内部令牌，并配置一种 QQ 安装包来源（见[首次启动与扫码登录](./first-start)）。各变量的完整说明见[环境变量（.env）](./env)。
 
 ```sh
 mkdir -p data/driver/secrets data/bot/pi data/bot/secrets workspace logs
@@ -30,24 +26,18 @@ sudo chown -R 1000:1000 data/bot workspace logs
 docker compose up -d
 ```
 
-然后打开 <http://localhost:8080>，用 `CONSOLE_PASSWORD` 登录，在实时画面里用手机 App
-扫码。勾选 自动登录，之后重启就能自己恢复。
+打开 <http://localhost:8080>，使用 `CONSOLE_PASSWORD` 登录面板，进入 **QQ** 页面，在实时画面中用手机 QQ 扫码登录。勾选**自动登录**，后续重启容器即可自动恢复登录。
 
 ::: tip Rootless Podman
-目录建好后执行一次
-`podman unshare chown -R 1000:1000 data/bot workspace logs`，代替上面的 `sudo chown`。
+若使用 Rootless Podman，请在创建目录后执行一次 `podman unshare chown -R 1000:1000 data/bot workspace logs`，代替上面的 `sudo chown`。
 :::
 
-## 第一次登录要等一会儿
+## 首次登录需要等待密钥提取
 
-首次登录时，驱动程序要在调试器里从客户端读出数据库密钥：虚拟显示下首次启动实测最多
-约 8 分钟。面板状态行显示 `db.key = "ok"` 时即完成，在那之前面板的机器人页面可能还在
-报错，这是正常的。等待的上限由 `KEYX_TIMEOUT_S` 控制（默认 900 秒），超时不致命——
-驱动程序会继续等，密钥就绪后状态自己变成 `"ok"`。
+首次扫码登录时，驱动服务会在调试器下从客户端进程提取本地数据库密钥，在虚拟屏幕环境下实测最多约需 8 分钟。在此期间，左侧状态栏的 **DB 密钥** 会显示 **密钥缺失**；提取完成后会自动变为 **密钥正常**。首次启动等待时长由 `KEYX_TIMEOUT_S` 控制（默认 `900` 秒），即使超时也不会中断服务，驱动会在后台继续等待密钥生成。
 
-## 接下来
+## 后续配置
 
-- 让模型开口：在 [会话](./console/conversations) 里把至少一个会话设成 参与，
-  并在 [安全](./console/safety) 里加一个管理员——两者齐备之前它不会开始任何一轮。
-- 给它一个模型：在 [模型](./console/models) 里登录服务商、选主模型。
-- 想让它记住你：在 [人设](./console/persona) 里写它是谁、怎么说话。
+- **配置管理员与参与会话：** 在[安全](./console/safety)页面添加至少一位系统管理员，并在[会话与策略](./console/conversations)页面将至少一个会话的状态设为 **参与**——这两项未完成前，模型不会开始任何轮次。
+- **选择主模型并配置 Jev：** 在[模型与 Jev](./console/models)页面登录模型服务商、选定支持视觉输入的主模型，并填入 Jev API key。
+- **编写人设：** 在[人设](./console/persona)页面填写昵称、性格和说话风格。
