@@ -54,7 +54,9 @@ are append-only and anchored to the messages and actions they came from, so a no
 keeps pointing at its sources after it is edited. Browse them on
 [Memory](./console/memory).
 
-## Jev: the small judging model
+## Jev: yes/no judgments
+
+[Jev](https://typesafe.ai/) is TypeSafe AI's decision model.
 
 Jev never writes replies; it answers short yes/no questions with a probability,
 and the stack compares that against a threshold. It is used for joining in, reply

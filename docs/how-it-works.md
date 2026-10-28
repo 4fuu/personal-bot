@@ -40,7 +40,7 @@ restart, and none of them piles up during downtime.
   decided: longer while the same person keeps typing, shorter when someone else
   answers, at most a second when the assistant is @'d, and never more than about
   eight seconds for a whole batch.
-- **Joining in.** In a group where it may speak on its own, Jev (a smaller model,
+- **Joining in.** In a group where it may speak on its own, Jev (see
   below) scores whether joining the conversation is natural; the
   stack subtracts a small penalty when the assistant has just been talking, and
   a little less when the batch @s it. A batch aimed only at other people is left
@@ -134,9 +134,9 @@ The previous window's transcript is not replayed, but it stays reachable:
 The opening note gives that recovery order: notes first, then the messages
 around the last anchor, then the history by anchor, then search.
 
-## Jev: the small judging model
+## Jev: the judging model
 
-Jev is a second, smaller and faster model. It never writes replies or does
+[Jev](https://typesafe.ai/) is TypeSafe AI's decision model. It never writes replies or does
 anything itself; it answers short yes/no questions with a probability, and the
 stack compares that against a threshold. It is used in these places:
 

@@ -54,7 +54,7 @@ The block the two group modes unlock:
 - **接话规矩** (criterion): free text on when joining in fits and when it does
   not, which the judging model reads.
 
-Whether it joins is scored by Jev, a small model; the stack subtracts a small
+Whether it joins is scored by [Jev](https://typesafe.ai/); the stack subtracts a small
 penalty when the assistant has just been talking there, a little less when the
 batch @s it, and a batch aimed only at other people is left alone. After a few
 batches in a row where it stayed out, the next check waits longer - messages are

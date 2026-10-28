@@ -98,7 +98,7 @@ what it does.
 The assistant is one long-running agent with a single session per account,
 working one turn at a time. A turn starts from a message batch, a wake word, a
 `wait` coming due, a scheduled task or a free turn; messages are batched
-briefly first, and in groups a small second model, Jev, decides
+briefly first, and in groups [Jev](https://typesafe.ai/) decides
 whether joining in is natural. Messages that arrive mid-turn are handed to the
 running turn. Its working memory is a rotating context window with a token
 budget: as the window fills, the stack sends staged reminders that ask the

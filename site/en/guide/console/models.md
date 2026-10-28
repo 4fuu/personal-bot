@@ -18,7 +18,7 @@ max).
 
 ## Jev（出口审查）
 
-Jev is a second, smaller and faster model. It never writes replies; it answers
+[Jev](https://typesafe.ai/) is TypeSafe AI's decision model. It never writes replies; it answers
 yes/no questions with a probability: whether to join in, how long to wait before
 answering, whether to quote, which conversation goes first, whether a bubble may
 leave, whether a domain may be reached, which notes stay. Every outbound bubble
