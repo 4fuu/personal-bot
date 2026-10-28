@@ -40,8 +40,8 @@ restart, and none of them piles up during downtime.
   decided: longer while the same person keeps typing, shorter when someone else
   answers, at most a second when the assistant is @'d, and never more than about
   eight seconds for a whole batch.
-- **Joining in.** In a group where it may speak on its own, the fast judge (a
-  smaller model, below) scores whether joining the conversation is natural; the
+- **Joining in.** In a group where it may speak on its own, Jev (a smaller model,
+  below) scores whether joining the conversation is natural; the
   stack subtracts a small penalty when the assistant has just been talking, and
   a little less when the batch @s it. A batch aimed only at other people is left
   alone.
@@ -50,7 +50,7 @@ restart, and none of them piles up during downtime.
   held, not dropped, and an @, its name, a wake word or a burst of messages ends
   the delay at once.
 - **Queueing.** When several conversations are waiting, the one that has waited
-  too long goes first; the judge can also reorder them by urgency, a panel
+  too long goes first; Jev can also reorder them by urgency, a panel
   setting that only logs its answers by default.
 
 ## During a turn
@@ -102,7 +102,7 @@ Notes are written by the assistant itself and are its only long-term memory.
 - Each new window keeps an active set - at most 20 notes and 15 % of the
   window - which the stack picks at rollover: the admin's standing notes first,
   then the notes written or edited in the closing window, then the rest by
-  measured usage, with the fast judge allowed to weigh in.
+  measured usage, with Jev allowed to weigh in.
 - Everything else stays archived and searchable. Notes are append-only and
   anchored to the messages and actions they came from, so a note keeps pointing
   at its sources after it is edited.
@@ -134,17 +134,36 @@ The previous window's transcript is not replayed, but it stays reachable:
 The opening note gives that recovery order: notes first, then the messages
 around the last anchor, then the history by anchor, then search.
 
-## The recent context the fast judge reads
+## Jev: the small judging model
 
-A small second model - the fast judge - decides when to answer, in which order
-to take the waiting conversations, whether to quote, and whether to join a group
-conversation. It never writes the replies.
+Jev is a second, smaller and faster model. It never writes replies or does
+anything itself; it answers short yes/no questions with a probability, and the
+stack compares that against a threshold. It is used in these places:
 
-When a judgement is about a conversation, it reads that conversation through one
-shared builder: the recent messages in order, plus - where the question is about
-the assistant's own speech - what the assistant recently said there. The slice
-is bounded to about 6 000 tokens of the judge's 32 000-token window: the oldest
-whole messages are dropped first, a message is never cut in half, and the state
+- **Joining in.** Whether joining a group conversation is natural right now
+  (the stack then subtracts its own penalty, see above). Acts by default.
+- **Reply timing.** How long to wait for more messages before answering.
+- **Quoting.** Whether a reply should quote the message it answers.
+- **Queue order.** Which waiting conversation needs an answer most urgently.
+- **Outbound review.** Every bubble, before it leaves: does it carry a
+  credential (always checked), does it repeat what the assistant already said
+  there, does it pass on a specific private fact it cannot cite (off by
+  default).
+- **Network gate.** A domain the sandbox asks for that is on neither the allow
+  list nor the block list is judged; a pass is added to the allow list.
+- **Active notes.** At rollover it can help weigh which notes stay in the next
+  window's active set.
+
+Each decision has its own panel setting - off, shadow (Jev is asked and its
+answer logged, the plain rule still acts) or on - with a threshold and an
+optional extra criterion. New decisions ship in shadow, so the log shows what
+Jev would have done before it is trusted with anything.
+
+When a question is about a conversation, Jev reads it through one shared
+builder: the recent messages in order, plus - where the question is about the
+assistant's own speech - what the assistant recently said there. The slice is
+bounded to about 6 000 tokens of Jev's 32 000-token window: the oldest whole
+messages are dropped first, a message is never cut in half, and the state
 records how many were dropped. Every request is scrubbed of secret values before
 it leaves, and the questions that judge nearby context read no persona.
 

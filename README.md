@@ -97,7 +97,7 @@ what it does.
 The assistant is one long-running agent with a single session per account,
 working one turn at a time. A turn starts from a message batch, a wake word, a
 `wait` coming due, a scheduled task or a free turn; messages are batched
-briefly first, and in groups a small second model, the fast judge, decides
+briefly first, and in groups a small second model, Jev, decides
 whether joining in is natural. Messages that arrive mid-turn are handed to the
 running turn. Its working memory is a rotating context window with a token
 budget: as the window fills, the stack sends staged reminders that ask the
@@ -106,8 +106,9 @@ agreements), and at the limit the window rolls over to a fresh one. Notes are
 the long-term memory - each carries a short summary and a share of the token
 budget, and the stack keeps an active set of them in every new window, which
 also opens with the previous window's handoff and the chat's recent messages
-while the full history stays searchable. The fast judge never writes the
-replies.
+while the full history stays searchable. Jev never writes the replies; it
+only answers yes/no questions - when to join in, when to answer, whether to
+quote, whether a bubble may leave.
 
 More detail, and how the context handling compares with AstrBot, MaiBot,
 DeepSeek Harness and pi: [docs/how-it-works.md](docs/how-it-works.md).
