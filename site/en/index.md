@@ -49,7 +49,9 @@ desktop client on a virtual display, `bot` runs the assistant, `console` serves
 the web panel you manage it from, and `sandbox` runs the assistant's shell
 commands as an unprivileged user.
 
-![Architecture of one stack: the official chat client runs headless and writes its local database; a private decrypted copy of that database feeds the driver, which serves the console on :8080 and the bot on :8766 over HTTP and WebSocket, sends messages and downloads media through the client itself and clicks its login button; the bot runs its commands in the sandbox on :8791](../../assets/architecture.svg)
+<p align="center">
+  <img src="../../assets/architecture.svg" alt="Architecture of one stack: the official chat client runs headless and writes its local database; a private decrypted copy of that database feeds the driver, which serves the console on :8080 and the bot on :8766 over HTTP and WebSocket, sends messages and downloads media through the client itself and clicks its login button; the bot runs its commands in the sandbox on :8791" />
+</p>
 
 ## Start here
 

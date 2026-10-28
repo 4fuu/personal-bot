@@ -32,11 +32,9 @@ chat client on a virtual display, one runs the assistant, one serves the web
 console you manage it from, and one provides an isolated sandbox where the
 assistant's shell commands run.
 
-![Architecture of one stack: the official chat client runs headless and writes its
-local database; a private decrypted copy of that database feeds the driver, which
-serves the console on :8080 and the bot on :8766 over HTTP and WebSocket, sends
-messages and downloads media through the client itself and clicks its login
-button; the bot runs its commands in the sandbox on :8791](assets/architecture.svg)
+<p align="center">
+  <img src="assets/architecture.svg" alt="Architecture of one stack: the official chat client runs headless and writes its local database; a private decrypted copy of that database feeds the driver, which serves the console on :8080 and the bot on :8766 over HTTP and WebSocket, sends messages and downloads media through the client itself and clicks its login button; the bot runs its commands in the sandbox on :8791" />
+</p>
 
 - **Reading messages.** Incoming messages land in the client's local SQLCipher
   database within a couple of seconds. The driver copies that database to a
