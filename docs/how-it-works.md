@@ -25,7 +25,7 @@ A turn always has a reason, and the panel's log shows it:
   pending one.
 - **Scheduled tasks.** One-off or repeating tasks, each opening a turn in a
   chosen conversation with the task's note as its input. They are created and
-  changed only in the owner's private chat.
+  changed only in an admin's private chat.
 - **Free turns.** When a set number of minutes passes with no turn at all, the
   assistant gets a turn of its own that belongs to no conversation, to spend on
   whatever it finds interesting - searching, reading, using its tools, writing
@@ -100,7 +100,7 @@ Notes are written by the assistant itself and are its only long-term memory.
   and is refused past 20 %; shrinking a note or deleting one is always allowed,
   because the budget refuses growth and never tidying.
 - Each new window keeps an active set - at most 20 notes and 15 % of the
-  window - which the stack picks at rollover: the owner's standing notes first,
+  window - which the stack picks at rollover: the admin's standing notes first,
   then the notes written or edited in the closing window, then the rest by
   measured usage, with the fast judge allowed to weigh in.
 - Everything else stays archived and searchable. Notes are append-only and
@@ -117,7 +117,7 @@ Notes are written by the assistant itself and are its only long-term memory.
   window.
 - At the hard limit the stack rolls over by itself with no handoff at all. That
   window's context is not replayed.
-- An operator can roll over from the panel at any time, with a reason that
+- An admin can roll over from the panel at any time, with a reason that
   opens the next window.
 
 ## What a new window opens with

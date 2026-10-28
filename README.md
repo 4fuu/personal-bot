@@ -83,7 +83,7 @@ what it does.
 - **Remember.** Notes it writes itself, and a searchable history of its own
   turns.
 - **Come back later.** `wait` from a minute to a day, wake words, scheduled
-  tasks set in the owner's private chat, and optional free turns when nothing
+  tasks set in an admin's private chat, and optional free turns when nothing
   has happened for a while.
 - **Use tools.** Web search and page reading, a shell and files in a sandbox
   whose only way out is a filtering proxy, `code_exec` scripts, skills, and MCP
