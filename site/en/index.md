@@ -51,25 +51,7 @@ desktop client on a virtual display, `bot` runs the assistant, `console` serves
 the web panel you manage it from, and `sandbox` runs the assistant's shell
 commands as an unprivileged user.
 
-```
-┌──────────────────────────── one stack = one account ──────────────────────────┐
-│                                                                                  │
-│  chat client (official, unmodified, headless)                                    │
-│    │ writes              ▲ sends & downloads   ▲ clicks 登录                     │
-│    ▼                     │                     │                                 │
-│  private decrypted copy ──▶ driver (HTTP + WebSocket)                            │
-│                              │                        │                          │
-│                              ▼                        ▼                          │
-│                          console :8080            bot :8766                      │
-│                          (admin panel,            (agent session, notes,         │
-│                           live view)               outbound review)              │
-│                                                      │                           │
-│                                                      ▼                           │
-│                                                  sandbox :8791                   │
-│                                                  (runs commands as an            │
-│                                                   unprivileged user)             │
-└──────────────────────────────────────────────────────────────────────────────────┘
-```
+![Architecture of one stack: the official chat client runs headless and writes its local database; a private decrypted copy of that database feeds the driver, which serves the console on :8080 and the bot on :8766 over HTTP and WebSocket, sends messages and downloads media through the client itself and clicks its login button; the bot runs its commands in the sandbox on :8791](../../assets/architecture.svg)
 
 ## Start here
 

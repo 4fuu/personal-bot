@@ -59,7 +59,8 @@ jobs:
 
       # The files that are not part of the site's sources: the MCP metadata
       # document at the site root, and the repository's assets/ (the header
-      # banner, the favicon and the mascot) under /assets/.
+      # banner, the favicon, the mascot and the two architecture diagrams)
+      # under /assets/.
       - name: publish mcp-client.json at the site root
         run: cp mcp-client.json site/.vitepress/dist/mcp-client.json
 
