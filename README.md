@@ -5,6 +5,7 @@
 **A self-hosted personal assistant that runs on your own machine, keeps its
 memory in files you own, and answers in the chats you already use.**
 
+[Docs site](https://4fuu.github.io/personal-bot/) ·
 [Quick start](#quick-start) ·
 [First start](#first-start) ·
 [Configuration](#configuration) ·
@@ -275,8 +276,9 @@ the console at another address - a domain, a tunnel, another port - edit
 `redirect_uris` in your copy to match it exactly, because the authorization
 server refuses a callback that does not match the address the browser used.
 
-To serve the document from GitHub Pages, copy `mcp-client.json` to the root of a
-GitHub Pages site for this repository. If you would rather not publish anything,
+The repository's Pages workflow publishes `mcp-client.json` at the root of the
+docs site, so in a fork you only edit the file and push; the workflow serves your
+copy. If you would rather not publish anything,
 register the client by hand on the MCP server instead, or use its dynamic client
 registration if it has one; both are options in the console's 工作区 page.
 

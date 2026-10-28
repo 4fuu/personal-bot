@@ -1,0 +1,90 @@
+# Publishes the documentation site to GitHub Pages.
+#
+# Two jobs: build the VitePress site under site/, then deploy the artifact. The
+# build also copies the repository's mcp-client.json to the root of the site, so
+# https://<user>.github.io/personal-bot/mcp-client.json - the MCP Client ID
+# Metadata Document MCP OAuth clients point at - keeps answering at exactly that
+# URL after the Pages source moves from "the repository root, legacy builder" to
+# "GitHub Actions". The repository file stays the single source of truth; there
+# is no second copy of the document to keep in step.
+#
+# One-time setup on the repository: Settings -> Pages -> Build and deployment ->
+# Source: "GitHub Actions" (README.md, "Documentation").
+
+name: docs pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "assets/**"
+      - "mcp-client.json"
+      - ".github/workflows/docs-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build the docs site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: site/pnpm-lock.yaml
+
+      - name: install the site's dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: site
+
+      - name: build the site
+        run: pnpm docs:build
+        working-directory: site
+
+      # The files that are not part of the site's sources: the MCP metadata
+      # document at the site root, and the repository's assets/ (the header
+      # banner, the favicon and the mascot) under /assets/.
+      - name: publish mcp-client.json at the site root
+        run: cp mcp-client.json site/.vitepress/dist/mcp-client.json
+
+      - name: check the document is in the artifact
+        run: test -f site/.vitepress/dist/mcp-client.json
+
+      - name: publish the repository's assets under /assets/
+        run: |
+          set -euo pipefail
+          if [ -d assets ]; then
+            mkdir -p site/.vitepress/dist/assets
+            cp -R assets/. site/.vitepress/dist/assets/
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/.vitepress/dist
+
+  deploy:
+    name: deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

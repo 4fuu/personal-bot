@@ -1,0 +1,21 @@
+{
+  "name": "personal-bot-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "personal-bot documentation site (VitePress)",
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  },
+  "packageManager": "pnpm@10.30.3",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
