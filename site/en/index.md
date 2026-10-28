@@ -5,12 +5,11 @@ hero:
   name: personal-bot
   text: A self-hosted personal assistant
   tagline: Runs on your own machine, stores its memory in files you control, and replies in the chats you already use.
-  # Header image slot: uncomment this line once
-  # release/personal-bot/assets/header.png is in the repository, changing the
-  # path if the file lands under another name. The site root's
-  # /personal-bot/assets/ is copied from the repository's assets/ by the deploy
-  # workflow.
-  # image: /personal-bot/assets/header.png
+  # Hero image: release/personal-bot/assets/mascot-hero.png in the repository
+  # (a web-sized copy of the mascot, transparent PNG). VitePress prepends the
+  # base (/personal-bot/), so the path is site-root relative; the deploy
+  # workflow copies the repository's assets/ to the site root.
+  image: /assets/mascot-hero.png
   actions:
     - theme: brand
       text: Quick start
@@ -34,7 +33,6 @@ features:
     details: Manage the live client screen and login, conversation policies, persona, memory, stickers, schedules, models, safety rules, workspace tools, advanced timing, and live logs.
 ---
 
-<!-- The header image slot is the commented hero.image in the frontmatter above. -->
 
 ::: warning Read this first
 This project drives a third-party desktop client, which violates that client's
@@ -76,7 +74,6 @@ windows, memory, and comparisons with other frameworks, see
 [docs/how-it-works.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.md).
 
 <!--
-  The header image is the commented hero.image in the frontmatter (the file
-  comes from the repository's assets/). Console screenshots may only be taken
-  from apps/console's mock mode (synthetic data) and belong under public/.
+  Console screenshots may only be taken from apps/console's mock mode
+  (synthetic data) and belong under public/.
 -->

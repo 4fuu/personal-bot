@@ -115,11 +115,12 @@ export default {
   head: [
     ['meta', { name: 'theme-color', content: '#3a6ea5' }],
     ['meta', { property: 'og:type', content: 'website' }],
-    // Favicon slot: the file comes from the repository's assets/ directory,
+    // Favicon: the dog-head pixel icon from the repository's assets/ directory,
     // which the deploy workflow copies into the site root
-    // (.github/workflows/docs-pages.yml). It answers 404 until the file lands;
-    // rename the reference if the artwork lands under another name.
-    ['link', { rel: 'icon', href: '/personal-bot/assets/favicon.ico' }],
+    // (.github/workflows/docs-pages.yml). The SVG scales crisply; the ICO is
+    // the fallback for browsers without SVG favicon support.
+    ['link', { rel: 'icon', href: '/personal-bot/assets/favicon.svg', type: 'image/svg+xml' }],
+    ['link', { rel: 'icon', href: '/personal-bot/assets/favicon.ico', sizes: '32x32' }],
   ],
   // Only what both locales share. Every label that differs between them lives
   // in that locale's own themeConfig below, so neither leaks into the other.

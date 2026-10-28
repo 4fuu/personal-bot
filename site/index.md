@@ -5,10 +5,10 @@ hero:
   name: personal-bot
   text: 自托管的个人助理
   tagline: 部署在自有设备上，记忆保存在本地文件，直接在日常使用的聊天软件中回复消息。
-  # 头图槽位：把 release/personal-bot/assets/header.png 放进仓库后取消下面这行
-  # 注释；文件名不同就改这个路径。站点根目录下的 /personal-bot/assets/ 由发布
-  # workflow 从仓库的 assets/ 复制而来。
-  # image: /personal-bot/assets/header.png
+  # 头图：仓库里的 release/personal-bot/assets/mascot-hero.png（吉祥物的网页尺寸
+  # 副本，透明背景 PNG）。VitePress 会给它加上 base（/personal-bot/），所以这里写
+  # 站点根目录相对的路径；发布 workflow 把仓库的 assets/ 复制到站点根目录。
+  image: /assets/mascot-hero.png
   actions:
     - theme: brand
       text: 快速开始
@@ -32,7 +32,6 @@ features:
     details: 涵盖实时画面与登录、会话策略、人设、记忆、表情包、定时任务、模型与服务商、安全与网络、工作区、高级设置及实时日志。
 ---
 
-<!-- 头图槽位在页面顶部的 frontmatter 里（hero.image，已注释）。 -->
 
 ::: warning 运行前必读
 本项目通过驱动第三方桌面客户端运行，不属于该客户端服务条款允许的范围，可能导致账号受限或封禁。请使用已有正常使用记录的小号，在家庭宽带环境下运行，并保持默认的发送节奏。本项目为个人研究项目，按“现状”提供，一切风险由使用者自行承担。运行前请先阅读[免责声明](./guide/disclaimer)。
@@ -59,6 +58,5 @@ features:
 完整项目说明见仓库 [README](https://github.com/4fuu/personal-bot)；轮次、上下文与记忆机制的详细对比见 [docs/how-it-works.zh-CN.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.zh-CN.md)。
 
 <!--
-  站点头图是 frontmatter 里注释掉的 hero.image（文件来自仓库的 assets/）；
   控制台截图只允许用 apps/console 的 mock 模式（合成数据）拍摄，放在 public/ 下。
 -->

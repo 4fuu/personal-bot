@@ -2,6 +2,8 @@
 
 # personal-bot
 
+<img src="assets/header.svg" alt="personal-bot" />
+
 **A self-hosted personal assistant that runs on your own machine, stores its
 memory in files you control, and replies in the chats you already use.**
 
