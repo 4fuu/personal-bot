@@ -183,10 +183,43 @@ docker compose up -d
 
 模型可以作为 MCP 客户端，而一个用 OAuth 认证的 MCP 服务端可以通过
 **Client ID Metadata Document** 注册它：`client_id` 是一个 JSON 文档的 URL，
-授权服务器会去取这个文档，从而知道客户端的跳转地址和名字。
+授权服务器会去取这个文档，从而知道客户端的跳转地址和名字。`client_id` 必须
+与文档被取用时的 URL 完全一致，所以一份文档只能对应一个面板地址。
 
-本仓库把这份文档放在 [`mcp-client.json`](mcp-client.json)，`client_id` 指向它
-所在的 GitHub Pages 地址：
+**按来源分发文档的 Worker。** `cimd-worker/` 里有一个 Cloudflare Worker，它从
+路径里读出面板的地址：
+
+```
+https://personal-bot-cimd.immeasurable-o.workers.dev/http/localhost:8080/mcp-client.json
+```
+
+就是面板在 `http://localhost:8080` 时的那份文档：
+
+```json
+{
+  "client_id": "https://personal-bot-cimd.immeasurable-o.workers.dev/http/localhost:8080/mcp-client.json",
+  "redirect_uris": ["http://localhost:8080/mcp/oauth/callback"]
+}
+```
+
+URL 按你打开面板时用的地址拼：协议、主机和端口，再接 `/mcp-client.json`。
+回环地址（`http://localhost:<端口>`、`http://127.0.0.1:<端口>`、
+`http://[::1]:<端口>`，以及本地 TLS 反代下同样的 `https` 形式）不需要任何设置
+就能用；其他主机必须写进 Worker 的 `CIMD_EXTRA_HOSTS` 变量，否则别人就能拿到一份
+把授权跳转到他自己地址的文档。不想依赖上面这个 Worker，就自己部署一个：
+
+```sh
+cd cimd-worker
+CLOUDFLARE_API_TOKEN=<有部署 Worker 权限的 token> npx wrangler deploy
+```
+
+要放行一个非回环主机，把它写进 `wrangler.toml` 的 `[vars]`
+（`CIMD_EXTRA_HOSTS = "console.example.com"`：逗号分隔的主机名，不带协议和
+端口），再部署一次。
+
+**静态文件是后备方案。** 本仓库把这份文档放在
+[`mcp-client.json`](mcp-client.json)，`client_id` 指向它所在的 GitHub Pages
+地址：
 
 ```json
 {

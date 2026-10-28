@@ -223,10 +223,45 @@ recreate loses nothing.
 The assistant can act as an MCP client, and an MCP server that authenticates over
 OAuth can register it by **Client ID Metadata Document**: the `client_id` is the
 URL of a JSON document, and the authorization server fetches it to learn the
-client's redirect URIs and its name.
+client's redirect URIs and its name. The `client_id` has to be the exact URL the
+document was fetched from, so one document describes one console address.
 
-This repository ships that document as [`mcp-client.json`](mcp-client.json), with
-`client_id` set to the GitHub Pages URL it is served from:
+**A Worker that serves one per origin.** `cimd-worker/` holds a Cloudflare Worker
+that reads the console's address out of the path:
+
+```
+https://personal-bot-cimd.immeasurable-o.workers.dev/http/localhost:8080/mcp-client.json
+```
+
+is the document for a console reached at `http://localhost:8080`:
+
+```json
+{
+  "client_id": "https://personal-bot-cimd.immeasurable-o.workers.dev/http/localhost:8080/mcp-client.json",
+  "redirect_uris": ["http://localhost:8080/mcp/oauth/callback"]
+}
+```
+
+Build the URL from the address you open the console at: its scheme, its host and
+port, then `/mcp-client.json`. Loopback origins (`http://localhost:<port>`,
+`http://127.0.0.1:<port>`, `http://[::1]:<port>`, and the same over `https` for a
+local TLS proxy) are served without any setup. Every other host has to be named
+in the Worker's `CIMD_EXTRA_HOSTS` variable, which is what stops anyone else from
+getting a document that redirects an authorization to an address of their own.
+Deploy your own if you would rather not depend on the one above:
+
+```sh
+cd cimd-worker
+CLOUDFLARE_API_TOKEN=<a token that may deploy Workers> npx wrangler deploy
+```
+
+To allow a host that is not loopback, put it in `[vars]` in `wrangler.toml`
+(`CIMD_EXTRA_HOSTS = "console.example.com"`: comma-separated host names, no
+scheme, no port) and deploy again.
+
+**The static file** is the fallback. This repository ships that document as
+[`mcp-client.json`](mcp-client.json), with `client_id` set to the GitHub Pages
+URL it is served from:
 
 ```json
 {
