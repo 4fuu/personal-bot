@@ -1,10 +1,71 @@
-# How the assistant works: context and memory
+# How the assistant works: turns, context and memory
 
 personal-bot runs one assistant per account. It works one turn at a time, and
 everything it carries from one turn to the next lives in three places: a
 rotating context window, notes it writes itself, and an append-only log of its
-own turns and tool calls. This page covers those parts; the rest of the stack
-(the containers, the panel, the sandbox) is described in the README.
+own turns and tool calls. This page lists what starts a turn, what happens
+during one, and how context and memory are kept, each in a few sentences. The
+rest of the stack (the containers, the panel, the sandbox) is described in the
+README.
+
+## What starts a turn
+
+A turn always has a reason, and the panel's log shows it:
+
+- **Messages.** A private message, or a group message that @s the assistant,
+  replies to it or names it, starts a turn according to that conversation's
+  policy. Other group messages may start one when the assistant decides to join
+  in (below).
+- **Wake words.** When the assistant ends a turn quietly, it can arm a few words;
+  for six hours, any of them in that conversation starts a new turn without the
+  assistant being named.
+- **`wait`.** The assistant can say "look again in a while", from one minute to
+  one day. When the time comes the conversation reopens with its newest
+  messages. Up to ten waits in a row; a turn that starts there first cancels the
+  pending one.
+- **Scheduled tasks.** One-off or repeating tasks, each opening a turn in a
+  chosen conversation with the task's note as its input. They are created and
+  changed only in the owner's private chat.
+- **Free turns.** When a set number of minutes passes with no turn at all, the
+  assistant gets a turn of its own that belongs to no conversation, to spend on
+  whatever it finds interesting - searching, reading, using its tools, writing
+  notes - or on nothing. Off by default; the interval is a panel setting.
+
+Every turn start resets the free-turn timer, waits and schedules survive a
+restart, and none of them piles up during downtime.
+
+## Batches and joining in
+
+- **One decision per batch.** Messages are collected briefly before anything is
+  decided: longer while the same person keeps typing, shorter when someone else
+  answers, at most a second when the assistant is @'d, and never more than about
+  eight seconds for a whole batch.
+- **Joining in.** In a group where it may speak on its own, the fast judge (a
+  smaller model, below) scores whether joining the conversation is natural; the
+  stack subtracts a small penalty when the assistant has just been talking, and
+  a little less when the batch @s it. A batch aimed only at other people is left
+  alone.
+- **Idle backoff.** After a few batches in a row where it stayed out, the next
+  check in that group waits longer, doubling up to a few minutes. Messages are
+  held, not dropped, and an @, its name, a wake word or a burst of messages ends
+  the delay at once.
+- **Queueing.** When several conversations are waiting, the one that has waited
+  too long goes first; the judge can also reorder them by urgency, a panel
+  setting that only logs its answers by default.
+
+## During a turn
+
+- **New messages arrive mid-turn.** A message from the conversation the turn is
+  in is handed to the running turn between tool calls, so the assistant sees the
+  conversation move. During a free turn, a batch from any conversation that
+  passed the checks above is handed in the same way. A message that arrives just
+  as a turn ends goes back to be judged as a batch of its own.
+- **Speaking is optional.** Only what the assistant sends reaches the chat; it
+  may end a turn without a word. Every send is checked before it leaves:
+  citations for anything specific it says, and what may be said where.
+- **Interests.** The assistant notes content it finds interesting, so later
+  turns - a wait, a free turn, a conversation that touches the topic - can pick
+  it up again.
 
 ## One session, rotating windows
 
@@ -48,11 +109,12 @@ Notes are written by the assistant itself and are its only long-term memory.
 
 ## Rollover
 
-- The assistant can roll over on its own by writing a handoff of a sentence or
-  two. The tool refuses the call while the window is less than 60 % full,
-  because a rollover throws the window's context away. The handoff is capped at
-  about 4 000 tokens, because it opens - and then sits in the cached prefix of -
-  the next window.
+- The assistant can roll over on its own by writing a handoff in four short
+  parts: the current topics, progress, open to-dos and agreements. The tool
+  refuses the call while the window is less than 60 % full, because a rollover
+  throws the window's context away. The handoff is capped at about 4 000
+  tokens, because it opens - and then sits in the cached prefix of - the next
+  window.
 - At the hard limit the stack rolls over by itself with no handoff at all. That
   window's context is not replayed.
 - An operator can roll over from the panel at any time, with a reason that

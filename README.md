@@ -8,6 +8,7 @@ memory in files you own, and answers in the chats you already use.**
 [Quick start](#quick-start) ·
 [First start](#first-start) ·
 [Configuration](#configuration) ·
+[What it can do](#what-it-can-do) ·
 [How it works](#how-it-works) · [Disclaimer](#disclaimer)
 
 </div>
@@ -70,19 +71,43 @@ does not use any third-party protocol implementation. The panel's live view is
 the client's own framebuffer, so you can log in by scanning a QR code and watch
 what it does.
 
+## What it can do
+
+- **Chat.** Answers private messages and @-mentions; in groups you allow, it
+  can also join a conversation on its own. Each conversation has its own policy
+  in the panel.
+- **Send.** Text with the client's built-in faces, stickers (and saves new ones
+  it likes), images and files, with quote replies and @-mentions.
+- **Read.** The chat history and search, images, files sent in chat, voice
+  messages and forwarded bundles.
+- **Remember.** Notes it writes itself, and a searchable history of its own
+  turns.
+- **Come back later.** `wait` from a minute to a day, wake words, scheduled
+  tasks set in the owner's private chat, and optional free turns when nothing
+  has happened for a while.
+- **Use tools.** Web search and page reading, a shell and files in a sandbox
+  whose only way out is a filtering proxy, `code_exec` scripts, skills, and MCP
+  servers - each function can be switched on or off in the panel.
+- **Panel.** Live view and login, conversations and policies, persona, memory,
+  stickers, schedules, models, safety, workspace (MCP, skills, variables),
+  advanced settings and the log.
+
 ## How it works
 
 The assistant is one long-running agent with a single session per account,
-working one turn at a time. Its working memory is a rotating context window with
-a token budget: as the window fills, the stack sends staged reminders that ask
-the assistant to write notes and prepare a handoff, and at the limit the window
-rolls over to a fresh one. Notes are the long-term memory - each carries a short
-summary and a share of the token budget, and the stack keeps an active set of
-them in every new window, which also opens with the previous window's handoff
-and the chat's recent messages while the full history stays searchable. A small
-second model, the fast judge, reads a bounded slice of the recent conversation
-when it decides things like when to answer and whether to quote; it never writes
-the replies.
+working one turn at a time. A turn starts from a message batch, a wake word, a
+`wait` coming due, a scheduled task or a free turn; messages are batched
+briefly first, and in groups a small second model, the fast judge, decides
+whether joining in is natural. Messages that arrive mid-turn are handed to the
+running turn. Its working memory is a rotating context window with a token
+budget: as the window fills, the stack sends staged reminders that ask the
+assistant to write notes and prepare a handoff (topics, progress, to-dos,
+agreements), and at the limit the window rolls over to a fresh one. Notes are
+the long-term memory - each carries a short summary and a share of the token
+budget, and the stack keeps an active set of them in every new window, which
+also opens with the previous window's handoff and the chat's recent messages
+while the full history stays searchable. The fast judge never writes the
+replies.
 
 More detail, and how the context handling compares with AstrBot, MaiBot,
 DeepSeek Harness and pi: [docs/how-it-works.md](docs/how-it-works.md).
