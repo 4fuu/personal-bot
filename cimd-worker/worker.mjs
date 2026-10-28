@@ -7,14 +7,17 @@
  * callback path is fixed (/mcp/oauth/callback) and only its origin varies, so
  * the origin rides in the path instead:
  *
- *   https://<worker>/<scheme>/<host[:port]>/mcp-client.json
+ *   https://<worker>/<id>/<scheme>/<host[:port]>/mcp-client.json
  *
  * answers with that origin's document, its client_id set to the URL just asked
- * for. Which origins may be described is limited to loopback plus the host
- * names listed in the CIMD_EXTRA_HOSTS variable, so a stranger cannot use this
- * worker to hand an authorization server a document that redirects somewhere
- * of their choosing. Everything else is refused: 404 for a host that is not
- * allowed, 400 for an address that is not a host at all.
+ * for. <id> is a name the caller chooses (see idProblem), which is what keeps
+ * two users with a console at the same origin - both on http://localhost:8080,
+ * say - from registering the same client_id on one MCP server. Any host is
+ * served: the worker is a public service, and a document only ever names the
+ * origin the caller put in the path, which an authorization server already
+ * refuses unless it matches the address the browser used. Only malformed input
+ * is refused - a bad scheme, a segment that is not a host, the wrong path - with
+ * a 400, and so is an id that breaks its rules.
  *
  * Deployed with wrangler (wrangler.toml sits beside this file); there is no
  * build step and no dependency beyond wrangler itself.
@@ -34,11 +37,10 @@ const CALLBACK_PATH = '/mcp/oauth/callback';
 
 const DOCUMENT_NAME = 'mcp-client.json';
 
-/**
- * Loopback needs no configuration: it is a console on the machine the browser
- * is on, so nothing outside that machine can be redirected there.
- */
-const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]']);
+/** The caller-chosen id's shape: 16 to 64 characters of A-Z a-z 0-9 _ -. */
+const ID_MIN = 16;
+const ID_MAX = 64;
+const ID_CHARS = /^[A-Za-z0-9_-]+$/;
 
 const SCHEMES = new Set(['http', 'https']);
 const DEFAULT_PORTS = { http: '80', https: '443' };
@@ -48,23 +50,28 @@ const HOST_SEGMENT = /^[A-Za-z0-9.:[\]-]+$/;
 const HOSTNAME = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*$/;
 
 export default {
-  fetch(request, env) {
+  fetch(request) {
     const url = new URL(request.url);
     const parts = url.pathname.split('/').filter((part) => part.length > 0);
-    if (parts.length !== 3 || parts[2] !== DOCUMENT_NAME) {
+    if (parts.length === 3 && parts[2] === DOCUMENT_NAME) {
+      // The form this worker had before it carried an id: no id, no document.
+      return refuse(400, 'add an id: /<id>/<scheme>/<host[:port]>/mcp-client.json');
+    }
+    if (parts.length !== 4 || parts[3] !== DOCUMENT_NAME) {
       return refuse(404, 'no such document');
     }
-    const scheme = parts[0].toLowerCase();
+    const id = parts[0];
+    const idProblemText = idProblem(id);
+    if (idProblemText !== null) {
+      return refuse(400, idProblemText);
+    }
+    const scheme = parts[1].toLowerCase();
     if (!SCHEMES.has(scheme)) {
       return refuse(400, `unknown scheme: ${scheme}`);
     }
-    const host = parseHost(parts[1], scheme);
+    const host = parseHost(parts[2], scheme);
     if (host === null) {
       return refuse(400, 'malformed host');
-    }
-    if (!isAllowed(host, env.CIMD_EXTRA_HOSTS ?? '')) {
-      // 404 rather than 403: the worker does not confirm which hosts it knows.
-      return refuse(404, 'host not allowed');
     }
     const origin = originOf(scheme, host);
     const document = {
@@ -87,6 +94,23 @@ function refuse(status, message) {
 }
 
 /**
+ * The rule an id breaks, as text that names it, or null when it keeps them all:
+ * 16 to 64 characters, only A-Z a-z 0-9 _ -, at least one letter and at least
+ * one digit. The id is part of the client_id the MCP server registered, so a
+ * console keeps using the one it first picked - a new id is a new client there.
+ */
+function idProblem(id) {
+  if (!ID_CHARS.test(id)) return 'an id may hold only A-Z a-z 0-9 _ -';
+  if (id.length < ID_MIN || id.length > ID_MAX) {
+    return `an id is ${ID_MIN} to ${ID_MAX} characters, this one is ${id.length}`;
+  }
+  if (!/[A-Za-z]/.test(id) || !/[0-9]/.test(id)) {
+    return 'an id needs at least one letter and at least one digit';
+  }
+  return null;
+}
+
+/**
  * host[:port] as one path segment -> {hostname, port}, or null when it is not a
  * host. The URL parser does the work: it refuses a port out of range and an
  * unterminated IPv6 literal, lower-cases the name and compresses the address
@@ -104,33 +128,6 @@ function parseHost(value, scheme) {
   }
   if (!parsed.hostname.startsWith('[') && !HOSTNAME.test(parsed.hostname)) return null;
   return { hostname: parsed.hostname, port: parsed.port };
-}
-
-/**
- * Whether this host may be described. Loopback always may be, over either
- * scheme; every other host has to be named in CIMD_EXTRA_HOSTS, which is what
- * keeps the worker from pointing an authorization server at somebody else's
- * callback. Only the host name is checked, never the port: the port is part of
- * the redirect URI the document hands out, and an authorization server already
- * refuses a callback that does not match the address the browser used.
- */
-function isAllowed(host, extra) {
-  if (LOOPBACK_HOSTNAMES.has(host.hostname)) return true;
-  return extraHosts(extra).has(host.hostname);
-}
-
-/**
- * The variable's comma-separated host names as a set. An entry that is not a
- * host is dropped rather than failing the whole list, so one typo does not
- * lock out the hosts that are spelled right.
- */
-function extraHosts(value) {
-  const hosts = new Set();
-  for (const entry of value.split(',')) {
-    const host = parseHost(entry.trim(), 'https');
-    if (host !== null) hosts.add(host.hostname);
-  }
-  return hosts;
 }
 
 /** The origin a browser on that host would report, without the scheme's default port. */

@@ -3,15 +3,9 @@
 #   cd cimd-worker
 #   CLOUDFLARE_API_TOKEN=<a token that may deploy Workers> npx wrangler deploy
 #
-# Change the name first if you would rather it not be personal-bot-cimd on your
-# account's workers.dev subdomain. No build step, no dependencies.
+# No build step, no dependencies. The worker serves any host, so there is
+# nothing to configure: see README.md, "Connecting an MCP client".
 
 name = "personal-bot-cimd"
 main = "worker.mjs"
 compatibility_date = "2026-10-28"
-
-# Host names the worker may describe a document for, besides loopback:
-# comma-separated, no scheme, no port. Empty by default, which serves loopback
-# origins only. See README.md, "Connecting an MCP client".
-[vars]
-CIMD_EXTRA_HOSTS = ""

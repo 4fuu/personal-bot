@@ -190,32 +190,30 @@ docker compose up -d
 路径里读出面板的地址：
 
 ```
-https://personal-bot-cimd.immeasurable-o.workers.dev/http/localhost:8080/mcp-client.json
+https://personal-bot-cimd.popoi.work/<id>/http/localhost:8080/mcp-client.json
 ```
 
 就是面板在 `http://localhost:8080` 时的那份文档：
 
 ```json
 {
-  "client_id": "https://personal-bot-cimd.immeasurable-o.workers.dev/http/localhost:8080/mcp-client.json",
+  "client_id": "https://personal-bot-cimd.popoi.work/<id>/http/localhost:8080/mcp-client.json",
   "redirect_uris": ["http://localhost:8080/mcp/oauth/callback"]
 }
 ```
 
-URL 按你打开面板时用的地址拼：协议、主机和端口，再接 `/mcp-client.json`。
-回环地址（`http://localhost:<端口>`、`http://127.0.0.1:<端口>`、
-`http://[::1]:<端口>`，以及本地 TLS 反代下同样的 `https` 形式）不需要任何设置
-就能用；其他主机必须写进 Worker 的 `CIMD_EXTRA_HOSTS` 变量，否则别人就能拿到一份
-把授权跳转到他自己地址的文档。不想依赖上面这个 Worker，就自己部署一个：
+URL 由一个你自己起的 id 和打开面板时用的地址拼成：id、面板的协议、主机和端口，
+再接 `/mcp-client.json`。用 `openssl rand -hex 16` 生成 id（16 到 64 个字符，
+`A-Z a-z 0-9 _ -`，至少一个字母和一个数字），之后**一直用同一个**：它是 MCP
+服务端注册的 `client_id` 的一部分，换一个 id 就是那边的一个新客户端。两个人的
+面板在同一个地址上（比如都是 `http://localhost:8080`）时，各用各的 id，否则会
+注册出同一个 `client_id`。任何来源地址都能用，回环也不例外。不想依赖上面这个
+Worker，就自己部署一个：
 
 ```sh
 cd cimd-worker
 CLOUDFLARE_API_TOKEN=<有部署 Worker 权限的 token> npx wrangler deploy
 ```
-
-要放行一个非回环主机，把它写进 `wrangler.toml` 的 `[vars]`
-（`CIMD_EXTRA_HOSTS = "console.example.com"`：逗号分隔的主机名，不带协议和
-端口），再部署一次。
 
 **静态文件是后备方案。** 本仓库把这份文档放在
 [`mcp-client.json`](mcp-client.json)，`client_id` 指向它所在的 GitHub Pages

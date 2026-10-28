@@ -230,34 +230,32 @@ document was fetched from, so one document describes one console address.
 that reads the console's address out of the path:
 
 ```
-https://personal-bot-cimd.immeasurable-o.workers.dev/http/localhost:8080/mcp-client.json
+https://personal-bot-cimd.popoi.work/<id>/http/localhost:8080/mcp-client.json
 ```
 
 is the document for a console reached at `http://localhost:8080`:
 
 ```json
 {
-  "client_id": "https://personal-bot-cimd.immeasurable-o.workers.dev/http/localhost:8080/mcp-client.json",
+  "client_id": "https://personal-bot-cimd.popoi.work/<id>/http/localhost:8080/mcp-client.json",
   "redirect_uris": ["http://localhost:8080/mcp/oauth/callback"]
 }
 ```
 
-Build the URL from the address you open the console at: its scheme, its host and
-port, then `/mcp-client.json`. Loopback origins (`http://localhost:<port>`,
-`http://127.0.0.1:<port>`, `http://[::1]:<port>`, and the same over `https` for a
-local TLS proxy) are served without any setup. Every other host has to be named
-in the Worker's `CIMD_EXTRA_HOSTS` variable, which is what stops anyone else from
-getting a document that redirects an authorization to an address of their own.
-Deploy your own if you would rather not depend on the one above:
+Build the URL from an id of your own and the address you open the console at:
+the id, then the console's scheme, host and port, then `/mcp-client.json`. Make
+the id with `openssl rand -hex 16` (16 to 64 characters, `A-Z a-z 0-9 _ -`, at
+least one letter and one digit) and **keep using the same one afterwards**: it is
+part of the `client_id` the MCP server registered, so a new id is a new client
+there. Two people whose consoles sit at the same origin - both on
+`http://localhost:8080`, say - each pick their own id, or they would register the
+same `client_id`. Any origin is served, loopback or not. Deploy your own if you
+would rather not depend on the one above:
 
 ```sh
 cd cimd-worker
 CLOUDFLARE_API_TOKEN=<a token that may deploy Workers> npx wrangler deploy
 ```
-
-To allow a host that is not loopback, put it in `[vars]` in `wrangler.toml`
-(`CIMD_EXTRA_HOSTS = "console.example.com"`: comma-separated host names, no
-scheme, no port) and deploy again.
 
 **The static file** is the fallback. This repository ships that document as
 [`mcp-client.json`](mcp-client.json), with `client_id` set to the GitHub Pages
