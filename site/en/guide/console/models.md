@@ -8,8 +8,8 @@ which provider search uses.
 ## 主模型: the main model
 
 The model catalog comes from pi's agent directory (the built-ins, the pi.dev
-catalog, your own `models.json`) and is fetched at bot start, unless
-`PI_OFFLINE=1`; the 刷新目录 action in the page header fetches it again on demand.
+catalog, your own `models.json`) and is fetched at bot start and once a day after
+that, unless `PI_OFFLINE=1`; the 刷新目录 action in the page header fetches it again on demand.
 One chip shows the current main model and opens a searchable list. The main model
 **must support vision**: image understanding and sticker selection both rely on it.
 A model without vision stays listed and disabled with the reason. The 思考 select

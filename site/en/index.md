@@ -83,7 +83,8 @@ commands run in. One stack is one account.
 The agent is built on [pi](https://pi.dev), so every provider and model pi supports
 is available: log a provider in, or add a key, on the console's
 [模型 page](./guide/console/models). The model catalog is fetched at bot start
-(unless `PI_OFFLINE=1`) and can be refreshed on demand.
+and refreshed automatically once a day (neither when `PI_OFFLINE=1`), and can be
+refreshed on demand, so new models appear without a restart.
 
 The full project write-up is the repository's
 [README](https://github.com/4fuu/personal-bot); the context and memory

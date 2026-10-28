@@ -77,7 +77,7 @@ features:
 
 模型跑在 [pi](https://pi.dev) 上：pi 支持的每一家服务商、每一个模型都能用，
 在[控制台](./guide/console/models)的 模型 页登录服务商、或填一个 key 就行。
-模型目录在机器人启动时拉取（`PI_OFFLINE=1` 时除外），也可以随时手动刷新。
+模型目录在机器人启动时拉取，之后每天自动刷新一次（`PI_OFFLINE=1` 时都不拉取），也可以随时手动刷新，新出的模型不用重启就会出现。
 
 完整的项目说明在仓库的 [README](https://github.com/4fuu/personal-bot) 里；
 上下文与记忆的机制细节在 [docs/how-it-works.md](https://github.com/4fuu/personal-bot/blob/main/docs/how-it-works.md)。
