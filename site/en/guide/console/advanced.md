@@ -65,15 +65,6 @@ and private chats always run ahead of group join-ins and timer wakes):
   Supports **关闭** (off), **只记录不生效** (shadow, the default), and **启用**
   (active), plus an optional **额外判断** (custom criterion).
 
-## 空闲轮 (Free turns)
-
-Sets **空闲轮间隔（分钟）** (default `0`, which disables free turns; maximum
-`1440` minutes / 24 hours). When this many minutes pass since the last turn of
-any kind started, the assistant opens a conversation-free turn of its own to
-browse, search, run tools, update notes, or stay silent. Starting any turn
-(including a free turn) resets the timer, and no free turn opens while the bot
-is paused, has no admin configured, or is running or queueing another turn.
-
 ## 工具 (Tool exposure)
 
 Toggles `code_exec` (enabled by default). When enabled, secondary and edge

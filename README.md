@@ -92,7 +92,7 @@ the client is doing at any time.
 
 Each account runs as a single long-lived agent session that processes one turn
 at a time. A turn can be triggered by incoming messages, a wake word, a timer
-coming due, a scheduled task, or an idle free turn. Incoming messages in a chat
+coming due, or a scheduled task. Incoming messages in a chat
 are briefly batched before a turn starts; in group chats,
 [Jev](https://typesafe.ai/) evaluates whether joining the conversation is
 natural. Messages that arrive while a turn is already running are handed to

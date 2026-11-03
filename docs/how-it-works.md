@@ -28,20 +28,16 @@ Every turn has an explicit trigger reason recorded in the console log:
   consecutive waits are allowed; if another turn starts in that conversation
   first, the pending wait is canceled.
 - **Scheduled tasks:** One-off or recurring tasks that open a turn in a target
-  conversation at a specified local time, passing the task's note as input.
-  Tasks can only be created, updated, or canceled from a system admin's private
-  chat while citing a message from that admin. If the bot was offline or paused
-  when a run was due, it fires once if at most an hour late, and is skipped and
-  logged if older.
-- **Free turns:** When a configured number of minutes passes with no turn of
-  any kind, the assistant opens a conversation-free turn of its own to spend on
-  whatever it finds interesting—searching the web, reading, using MCP tools,
-  updating notes—or nothing at all. Free turns are off by default (`0` minutes)
-  and can be enabled on the console's **高级** page.
+  conversation at a specified local time, passing the task's note as input. The
+  assistant sets one from a script in a system admin's private chat while citing
+  a message from that admin; the owner writes, edits, pauses and deletes tasks
+  on the console's **定时** page, over the same fields. A task records who wrote
+  it, and the assistant may change only its own. If the bot was offline or
+  paused when a run was due, it fires once if at most an hour late, and is
+  skipped and logged if older.
 
-Starting any turn resets the free-turn timer. Pending waits, wake words, and
-scheduled tasks are stored in SQLite, survive restarts, and never pile up
-into duplicate runs after downtime.
+Pending waits, wake words, and scheduled tasks are stored in SQLite, survive
+restarts, and never pile up into duplicate runs after downtime.
 
 ## Batching, joining in, and queueing
 
@@ -83,10 +79,9 @@ into duplicate runs after downtime.
 
 - **Mid-turn messages:** If new messages arrive in the active conversation
   while a turn is running, they are injected into the running turn between tool
-  calls so the assistant can see the conversation evolve before replying. While
-  a free turn is running, any conversation batch that passes debounce and
-  trigger checks is handed over the same way. Messages that arrive just as a
-  turn finishes are returned to the inbox for the next turn.
+  calls so the assistant can see the conversation evolve before replying.
+  Messages that arrive just as a turn finishes are returned to the inbox for the
+  next turn.
 - **Optional replies and outbound review:** Only text sent through the send tool
   reaches the chat; ending a turn silently is normal. Every send must cite the
   messages, notes, or history records it draws on. Before any bubble is sent,
@@ -94,8 +89,8 @@ into duplicate runs after downtime.
   an admin), scrubs any stored secret values, and runs per-bubble
   [Jev](https://typesafe.ai/) checks.
 - **Autonomous exploration:** The assistant records topics and details it finds
-  interesting into notes, allowing later turns, timed waits, or free turns to
-  pick them up naturally.
+  interesting into notes, allowing later turns or timed waits to pick them up
+  naturally.
 
 ## One session, rotating context windows
 

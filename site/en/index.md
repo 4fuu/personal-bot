@@ -26,7 +26,7 @@ features:
   - title: Long-term memory
     details: Maintains its own notes with source anchors pointing back to exact messages and turns, alongside a searchable log of every turn and tool call.
   - title: Follow up later
-    details: Supports timed waits, six-hour wake words, scheduled tasks configured in an admin's private chat, and optional free turns when chats are quiet.
+    details: Supports timed waits, six-hour wake words, and scheduled tasks the model sets in an admin's private chat or the owner writes in the console.
   - title: Tools and integrations
     details: Includes web search and page reading, shell commands and file editing in an isolated sandbox, JavaScript tool chaining, skills, and MCP servers with per-function switches.
   - title: Web console

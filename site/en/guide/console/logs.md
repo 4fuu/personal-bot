@@ -4,8 +4,8 @@ The **日志** page offers two views over the runtime logs, selected by the firs
 dropdown in the toolbar and reflected in the URL hash:
 
 - **按轮次** (By turn): groups records into one expandable block per turn. Each
-  turn header shows the timestamp, the conversation name (or **空闲轮** for a
-  free turn), the trigger summary, and one-line totals for the join-in check,
+  turn header shows the timestamp, the conversation name, the trigger summary,
+  and one-line totals for the join-in check,
   tool calls, sent bubbles, token usage, and duration. Expanding a block shows
   every step of the turn in chronological order: rendered input, model output,
   tool calls with arguments and results, Jev decisions, and per-bubble send

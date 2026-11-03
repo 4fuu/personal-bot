@@ -17,11 +17,10 @@ and a side-by-side comparison with other projects, see
 - **Timed waits:** The assistant can pause and check back on a conversation
   after one minute to 24 hours; when the timer expires, a turn opens with the
   latest messages.
-- **Scheduled tasks:** Configured in a system admin's private chat; each run
-  opens a turn in the target conversation with the task's note as input.
-- **Free turns:** When a configured number of minutes passes with no turn at
-  all, the assistant gets a conversation-free turn of its own. Off by default;
-  configure the interval on [Advanced settings](./console/advanced).
+- **Scheduled tasks:** Set by the assistant in a system admin's private chat or
+  written by the owner on the [定时](./console/schedules) page; each run opens a turn in
+  the target conversation with the task's note as input. A task records which of
+  the two wrote it, and the assistant may change only its own.
 
 ## Batching and joining in
 
